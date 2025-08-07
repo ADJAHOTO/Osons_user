@@ -1,11 +1,14 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { getEventById, getImageEvent, getMyTotalCommentByEvent, getCommentByEvenementId, commentEvent, reactComment} from '../../services/api';
+import { getEventById, getImageEvent, getMyTotalCommentByEvent, getCommentByEvenementId, 
+         commentEvent, reactComment, reactEvent
+        } from '../../services/api';
+import { useUserStore } from '../../stores/userStore';        
 
 const route = useRoute();
 const router = useRouter();
-
+const userStore = useUserStore();
 const event = ref(null);
 const eventImage = ref(null);
 const eventComments = ref([]);
@@ -15,7 +18,17 @@ const imageLoaded = ref(false);
 const newComment = ref('');
 const isSubmittingComment = ref(false);
 const showCommentsSection = ref(false);
-const reactionComment = ref(null);
+
+// État des réactions pour l'événement
+const eventReaction = ref({
+  userReaction: null,
+  userReactionId: null,
+  isReacting: false
+});
+
+// États des réactions pour les commentaires
+const commentReactions = ref({});
+const reactingComments = ref(new Set());
 
 // Fonction pour charger les détails de l'événement
 const loadEvent = async () => {
@@ -31,6 +44,9 @@ const loadEvent = async () => {
     const res = await getImageEvent(eventId);
     eventImage.value = res.data.photo;
 
+    // Charger les réactions de l'événement
+    await fetchEventReactions(eventId);
+
   } catch (err) {
     console.error('Erreur:', err);
     error.value = "Impossible de charger l'événement";
@@ -39,11 +55,91 @@ const loadEvent = async () => {
   }
 };
 
+// Fonction pour récupérer les réactions d'un événement
+async function fetchEventReactions(eventId) {
+  try {
+    const userReaction = await userStore.reactionEvent(eventId);
+    if (userReaction) {
+      eventReaction.value = {
+        userReaction: userReaction.type,
+        userReactionId: userReaction.id,
+        isReacting: false
+      };
+    } else {
+      eventReaction.value = {
+        userReaction: null,
+        userReactionId: null,
+        isReacting: false
+      };
+    }
+  } catch (error) {
+    console.error("Erreur lors de la récupération des réactions de l'événement :", error.response?.data || error.message || error);
+  }
+}
+
+// Fonction pour créer une réaction à un événement
+async function toggleEventReaction(reactionType) {
+  const eventId = route.params.id;
+  if (!eventId || eventReaction.value.isReacting) return;
+
+  eventReaction.value.isReacting = true;
+
+  try {
+    const currentUserReactionType = eventReaction.value.userReaction;
+    const currentReactionId = eventReaction.value.userReactionId;
+
+    // CAS 1: Suppression (clic sur la même réaction)
+    if (currentUserReactionType === reactionType && currentReactionId) {
+      await userStore.deleteReaction(currentReactionId);
+    }
+    // CAS 2: Mise à jour (clic sur une réaction différente)
+    else if (currentUserReactionType && currentReactionId) {
+      const formData = new FormData();
+      formData.append('id_event', eventId);
+      formData.append('type', reactionType);
+      await userStore.updateReaction(currentReactionId, formData);
+    }
+    // CAS 3: Création (aucune réaction existante)
+    else {
+      const formData = new FormData();
+      formData.append('id_event', eventId);
+      formData.append('type', reactionType);
+      await reactEvent(formData);
+    }
+
+    // Recharger systématiquement l'état des réactions depuis le serveur
+    await fetchEventReactions(eventId);
+
+  } catch (error) {
+    console.error("Erreur lors de la réaction à l'événement :", error.response?.data || error.message || error);
+    // En cas d'erreur, on recharge aussi pour assurer la cohérence
+    await fetchEventReactions(eventId);
+  } finally {
+    eventReaction.value.isReacting = false;
+  }
+}
+
+
 // Récupérer la liste des commentaires pour l'événement concerné
-const loadComments = async () => {
+const fetchComments = async () => {
   try {
     const response = await getCommentByEvenementId(route.params.id);
-    eventComments.value = response.data || [];
+    const comments = response.data || [];
+
+    for (const comment of comments) {
+      const userReaction = await userStore.reactionComment(comment.id);
+      if (userReaction) {
+        comment.userReaction = userReaction.type;
+        comment.userReactionId = userReaction.id;
+        commentReactions.value[comment.id] = userReaction.type;
+      } else {
+        comment.userReaction = null;
+        comment.userReactionId = null;
+        commentReactions.value[comment.id] = null;
+      }
+    }
+
+    eventComments.value = comments;
   } catch (error) {
     console.error('Erreur lors du chargement des commentaires:', error);
   }
@@ -53,36 +149,36 @@ const loadComments = async () => {
 const toggleComments = () => {
   showCommentsSection.value = !showCommentsSection.value;
   if (showCommentsSection.value && eventComments.value.length === 0) {
-    loadComments();
+    fetchComments();
   }
 };
 
-// Création d'un commentaire
+// Création d'un commentaire pour un événement
 const submitComment = async () => {
   if (!newComment.value.trim()) return;
   
   isSubmittingComment.value = true;
+  
   try {
-    const formData = new FormData()
-    formData.append('description', newComment.value)
-    formData.append('id_evenement', route.params.id)
+    const formData = new FormData();
+    formData.append('description', newComment.value.trim());
+    formData.append('id_evenement', route.params.id);
     
-    const response = await commentEvent(formData)
+    const response = await commentEvent(formData);
 
-    // Ajouter le nouveau commentaire avec des réactions par défaut
-    const newCommentData = {
-      ...response.data,
-      reactions: {
-        dislike: 0,
-        love: 0,
-        smile: 0,
-        heart: 0
-      },
-      userReaction: null
+    // Ajouter le nouveau commentaire au début de la liste
+    const newCommentObj = {
+      id: response.data.id,
+      description: newComment.value.trim(),
+      date_creation: new Date().toISOString(),
+      userReaction: null,
+      userReactionId: null
     };
 
-    eventComments.value.unshift(newCommentData);
+    eventComments.value.unshift(newCommentObj);
+    commentReactions.value[newCommentObj.id] = null;
     newComment.value = '';
+    
   } catch (error) {
     console.error('Erreur lors de l\'ajout du commentaire:', error);
   } finally {
@@ -90,42 +186,52 @@ const submitComment = async () => {
   }
 };
 
-// Système de réactions
-const reactions = [
-  { name: 'like', emoji: '👍', label: 'J\'aime' },
-  { name: 'heart', emoji: '👎', label: 'Je n\'aime pas', dbField: 'heart' },
-  { name: 'adore', emoji: '❤️', label: 'J\'adore', dbField: 'love' },
-  { name: 'smile', emoji: '😊', label: 'Sourire', dbField: 'smile' },
-];
+// Fonction pour réagir à un commentaire
+async function toggleCommentReaction(commentId, reactionType) {
+  if (reactingComments.value.has(commentId)) return;
 
-// Fonction pour réagir a un commentaire
-async function toggleReaction(commentId, reactionName) {
+  reactingComments.value.add(commentId);
+
   try {
     const comment = eventComments.value.find(c => c.id === commentId);
-    if (!comment) return;
-
-    // Vérifier si l'utilisateur a déjà réagi
-    if (comment.userReaction === reactionName) {
-      // Annuler la réaction
-      await reactComment(commentId, reactionName, 'remove');
-      comment.userReaction = null;
-      comment.reactions[reactionName]--;
-    } else {
-      // Ajouter ou changer la réaction
-      if (comment.userReaction) {
-        // Supprimer l'ancienne réaction
-        await reactComment(commentId, comment.userReaction, 'remove');
-        comment.reactions[comment.userReaction]--;
-      }
-      // Ajouter la nouvelle réaction
-      await reactComment(commentId, reactionName, 'add');
-      comment.userReaction = reactionName;
-      comment.reactions[reactionName]++;
+    if (!comment) {
+      console.error('Commentaire non trouvé');
+      return;
     }
+
+    const currentUserReaction = comment.userReaction;
+    const currentReactionId = comment.userReactionId;
+
+    // CAS 1: Suppression
+    if (currentUserReaction === reactionType && currentReactionId) {
+      await userStore.deleteReaction(currentReactionId);
+    }
+    // CAS 2: Mise à jour
+    else if (currentUserReaction && currentReactionId) {
+      const payload = new FormData();
+      payload.append('type', reactionType);
+      await userStore.updateReaction(currentReactionId, payload);
+    }
+    // CAS 3: Création
+    else {
+      const formdata = new FormData();
+      formdata.append('id_comment', commentId);
+      formdata.append('type', reactionType);
+      await reactComment(formdata);
+    }
+
+    // Recharger systématiquement les commentaires pour mettre à jour les réactions
+    await fetchComments();
+
   } catch (error) {
-    console.error('Erreur lors de la réaction:', error);
+    console.error('Erreur lors de la réaction au commentaire:', error);
+    // En cas d'erreur, recharger aussi pour assurer la cohérence
+    await fetchComments();
+  } finally {
+    reactingComments.value.delete(commentId);
   }
 }
+
 
 const formatDate = (dateString) => {
   const options = { 
@@ -180,7 +286,7 @@ const goBack = () => {
 
 onMounted(() => {
   loadEvent();
-  loadComments();
+  fetchComments();
 });
 </script>
 
@@ -299,6 +405,114 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- Section des réactions pour l'événement -->
+            <div class="mb-8 p-6 bg-gradient-to-r from-orange-50 to-orange-100 rounded-2xl border border-orange-200">
+              <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                </svg>
+                Que pensez-vous de cet événement ?
+              </h3>
+              
+              <div class="flex flex-wrap gap-3">
+                <button 
+                  @click="toggleEventReaction('like')"
+                  :disabled="eventReaction.isReacting"
+                  class="flex items-center space-x-2 px-4 py-2 rounded-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="eventReaction.userReaction === 'like' ? 'bg-blue-500 text-white shadow-lg' : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-200'"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round" 
+                      stroke-width="2" 
+                      d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                      :fill="eventReaction.userReaction === 'like' ? 'currentColor' : 'none'"
+                    />
+                  </svg>
+                  <span class="font-medium">J'aime</span>
+                  <div v-if="eventReaction.isReacting && eventReaction.userReaction === 'like'" class="w-4 h-4">
+                    <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                </button>
+
+                <button 
+                  @click="toggleEventReaction('adore')"
+                  :disabled="eventReaction.isReacting"
+                  class="flex items-center space-x-2 px-4 py-2 rounded-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="eventReaction.userReaction === 'adore' ? 'bg-rose-500 text-white shadow-lg' : 'bg-white text-gray-700 hover:bg-rose-50 border border-gray-200'"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round" 
+                      stroke-width="2" 
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      :fill="eventReaction.userReaction === 'adore' ? 'currentColor' : 'none'"
+                    />
+                  </svg>
+                  <span class="font-medium">J'adore</span>
+                  <div v-if="eventReaction.isReacting && eventReaction.userReaction === 'adore'" class="w-4 h-4">
+                    <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                </button>
+
+                <button 
+                  @click="toggleEventReaction('smile')"
+                  :disabled="eventReaction.isReacting"
+                  class="flex items-center space-x-2 px-4 py-2 rounded-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="eventReaction.userReaction === 'smile' ? 'bg-yellow-500 text-white shadow-lg' : 'bg-white text-gray-700 hover:bg-yellow-50 border border-gray-200'"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round" 
+                      stroke-width="2" 
+                      d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      :fill="eventReaction.userReaction === 'smile' ? 'currentColor' : 'none'"
+                    />
+                  </svg>
+                  <span class="font-medium">Amusant</span>
+                  <div v-if="eventReaction.isReacting && eventReaction.userReaction === 'smile'" class="w-4 h-4">
+                    <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                </button>
+
+                <button 
+                  @click="toggleEventReaction('heart')"
+                  :disabled="eventReaction.isReacting"
+                  class="flex items-center space-x-2 px-4 py-2 rounded-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="eventReaction.userReaction === 'heart' ? 'bg-red-500 text-white shadow-lg' : 'bg-white text-gray-700 hover:bg-red-50 border border-gray-200'"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round" 
+                      stroke-width="2" 
+                      d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5"
+                      :fill="eventReaction.userReaction === 'heart' ? 'currentColor' : 'none'"
+                    />
+                  </svg>
+                  <span class="font-medium">J'aime pas</span>
+                  <div v-if="eventReaction.isReacting && eventReaction.userReaction === 'heart'" class="w-4 h-4">
+                    <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div class="grid md:grid-cols-2 gap-6 mb-8">
               <div class="bg-gray-50 rounded-xl p-6">
                 <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
@@ -315,8 +529,9 @@ onMounted(() => {
                   <svg class="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                   </svg>
-                  <p class="text-gray-600">{{ eventComments.length }}</p>
+                  Commentaires
                 </h3>
+                <p class="text-gray-600">{{ eventComments.length }} commentaire{{ eventComments.length > 1 ? 's' : '' }}</p>
               </div>
             </div>
 
@@ -336,7 +551,7 @@ onMounted(() => {
           </div>
         </div>
 
-                  <!-- Section améliorée des commentaires -->
+        <!-- Section améliorée des commentaires -->
         <div v-if="showCommentsSection" class="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div class="bg-gradient-to-r from-orange-500 to-orange-600 p-6">
             <h3 class="text-2xl font-bold text-white flex items-center">
@@ -363,6 +578,7 @@ onMounted(() => {
                   placeholder="Partagez votre opinion sur cet événement..."
                   class="w-full p-4 border border-gray-300 rounded-xl resize-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
                   rows="3"
+                  maxlength="500"
                 ></textarea>
                 <div class="flex justify-between items-center mt-3">
                   <span class="text-sm text-gray-500">{{ newComment.length }}/500 caractères</span>
@@ -382,7 +598,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Liste des commentaires -->
+          <!-- Liste des commentaires -->      
           <div class="max-h-96 overflow-y-auto">
             <div v-if="eventComments.length === 0" class="text-center py-12">
               <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -415,23 +631,102 @@ onMounted(() => {
                       <p class="text-gray-700 leading-relaxed break-words">{{ comment.description }}</p>
                     </div>
                     
-                    <!-- Système de réactions -->
-                    <div class="flex items-center space-x-1">
+                    <!-- Système de réactions pour commentaires amélioré -->
+                    <div class="flex items-center justify-start space-x-2 mt-3 pt-3 border-t border-gray-100">
                       <button 
-                        v-for="reaction in reactions" 
-                        :key="reaction.name"
-                        @click="toggleReaction(comment.id, reaction.name)"
-                        class="group flex items-center space-x-1 px-3 py-1.5 rounded-full text-sm transition-all hover:bg-gray-200"
-                        :class="{
-                          'bg-orange-100 text-orange-600': comment.userReaction === reaction.name,
-                          'text-gray-600 hover:text-gray-800': comment.userReaction !== reaction.name
-                        }"
-                        :title="reaction.label"
+                        @click.stop="toggleCommentReaction(comment.id, 'like')"
+                        :disabled="reactingComments.has(comment.id)"
+                        class="flex items-center space-x-1 px-3 py-1 rounded-full transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :class="comment.userReaction === 'like' ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'"
                       >
-                        <span class="text-lg group-hover:scale-110 transition-transform">{{ reaction.emoji }}</span>
-                        <span v-if="comment.reactions && comment.reactions[reaction.name] > 0" class="font-medium">
-                          {{ comment.reactions[reaction.name] }}
-                        </span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path 
+                            stroke-linecap="round" 
+                            stroke-linejoin="round" 
+                            stroke-width="2" 
+                            d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                            :fill="comment.userReaction === 'like' ? 'currentColor' : 'none'"
+                          />
+                        </svg>
+                        <span class="text-xs font-medium">Like</span>
+                        <div v-if="reactingComments.has(comment.id) && comment.userReaction === 'like'" class="w-3 h-3">
+                          <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        </div>
+                      </button>
+
+                      <button 
+                        @click.stop="toggleCommentReaction(comment.id, 'adore')"
+                        :disabled="reactingComments.has(comment.id)"
+                        class="flex items-center space-x-1 px-3 py-1 rounded-full transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :class="comment.userReaction === 'adore' ? 'bg-rose-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-rose-100'"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path 
+                            stroke-linecap="round" 
+                            stroke-linejoin="round" 
+                            stroke-width="2" 
+                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                            :fill="comment.userReaction === 'adore' ? 'currentColor' : 'none'"
+                          />
+                        </svg>
+                        <span class="text-xs font-medium">Adore</span>
+                        <div v-if="reactingComments.has(comment.id) && comment.userReaction === 'adore'" class="w-3 h-3">
+                          <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        </div>
+                      </button>
+
+                      <button 
+                        @click.stop="toggleCommentReaction(comment.id, 'smile')"
+                        :disabled="reactingComments.has(comment.id)"
+                        class="flex items-center space-x-1 px-3 py-1 rounded-full transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :class="comment.userReaction === 'smile' ? 'bg-yellow-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-yellow-100'"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path 
+                            stroke-linecap="round" 
+                            stroke-linejoin="round" 
+                            stroke-width="2" 
+                            d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            :fill="comment.userReaction === 'smile' ? 'currentColor' : 'none'"
+                          />
+                        </svg>
+                        <span class="text-xs font-medium">Smile</span>
+                        <div v-if="reactingComments.has(comment.id) && comment.userReaction === 'smile'" class="w-3 h-3">
+                          <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        </div>
+                      </button>
+
+                      <button 
+                        @click.stop="toggleCommentReaction(comment.id, 'heart')"
+                        :disabled="reactingComments.has(comment.id)"
+                        class="flex items-center space-x-1 px-3 py-1 rounded-full transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :class="comment.userReaction === 'heart' ? 'bg-red-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-red-100'"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path 
+                            stroke-linecap="round" 
+                            stroke-linejoin="round" 
+                            stroke-width="2" 
+                            d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5"
+                            :fill="comment.userReaction === 'heart' ? 'currentColor' : 'none'"
+                          />
+                        </svg>
+                        <span class="text-xs font-medium">Dislike</span>
+                        <div v-if="reactingComments.has(comment.id) && comment.userReaction === 'heart'" class="w-3 h-3">
+                          <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        </div>
                       </button>
                     </div>
                   </div>
@@ -486,10 +781,47 @@ onMounted(() => {
 /* Animation pour les réactions */
 @keyframes bounce {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  50% { transform: scale(1.2); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 .group:hover span {
   animation: bounce 0.3s ease-in-out;
+}
+
+/* Animations au survol des boutons de réaction */
+button:hover:not(:disabled) {
+  animation: pulse 0.3s ease-in-out;
+}
+
+/* États de chargement */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Styles pour les réactions actives */
+.bg-orange-500, .bg-red-500, .bg-yellow-500, .bg-blue-500 {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Responsive design amélioré */
+@media (max-width: 640px) {
+  .flex.flex-wrap.gap-3 {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .flex.flex-wrap.gap-3 button {
+    justify-content: center;
+  }
 }
 </style>

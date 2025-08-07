@@ -8,6 +8,8 @@ const apiUrl3 = import.meta.env.VITE_API_URL_3
 const apiUrl4 = import.meta.env.VITE_API_URL_4
 const apiUrl5 = import.meta.env.VITE_API_URL_5
 const apiUrl6 = import.meta.env.VITE_API_URL_6
+const apiUrl7 = import.meta.env.VITE_API_URL_7
+const apiUrl8 = import.meta.env.VITE_API_URL_8
 
 // Vérifier si l'utilisateur est connecté
 export const isLoggedIn = () => {
@@ -46,6 +48,7 @@ const getAuthHeaders = () => {
   };
 };
 
+// Récuperer l'ID de l'utilisateur depuis le Token
 export const getUserIdFromToken = () => {
   const token = localStorage.getItem('access_token');
   if (!token) return null;
@@ -228,13 +231,13 @@ export const resetPassword = () => {
 // ====================================
 
 // Mise a jour des informations de l'utilisateur connecté par lui meme
-export const updateUserInfos = () => {
-  return axios.patch(`${apiUrl}/user_infos/photo_profil`, getAuthHeaders())
+export const updateUserInfos = (payload) => {
+  return axios.patch(`${apiUrl}/user_infos/photo_profil`,payload, getAuthHeaders())
 }
 
 // Modifier la photo de profill
-export const updatePhotoProfil = () => {
-  return axios.put(`${apiUrl}/user_infos/update_photo_profil`, getAuthHeaders())
+export const updatePhotoProfil = (formData) => {
+  return axios.put(`${apiUrl}/user_infos/update_photo_profil`,formData, getAuthHeaders())
 }
 
 // Supprimer la photo de profil
@@ -268,6 +271,26 @@ export const getlist = () => {
 }
 
 // ====================================
+// ==== UTILISATEUR =============
+// ====================================
+
+// Changer le mot de passe dans l'application
+export const updatePasswordInApp = () => {
+  return axios.put(`${apiUrl}/user/reset_password_in_app`, getAuthHeaders())
+} 
+
+// Mettre a jour le mot de passe 
+export const updatePassword = () => {
+  return axios.put(`${apiUrl}/user/reset_password`, getAuthHeaders())
+} 
+
+// Recuperer les informations de l'utilisateur courant
+export const getUserInfos = () => {
+  return axios.get(`${apiUrl}/user/current_user_infos`, getAuthHeaders())
+} 
+
+
+// ====================================
 // ====  PUBLICATIONS UTILISATEUR =============
 // ====================================
 
@@ -286,7 +309,7 @@ export const getMyPublication = ()  => {
   return axios.get(`${apiUrl2}/publication_utilisateur/publications/mes/`, getAuthHeaders())
 }
 
-// Récuperer mes publications
+// Récuperer une publication par son ID 
 export const getPublicationById = (pub_id)  => {
   return axios.get(`${apiUrl2}/publication_utilisateur/publications/${pub_id}`, getAuthHeaders())
 }
@@ -296,7 +319,7 @@ export const updateMyPublication = (publication_id, publication)  => {
   return axios.put(`${apiUrl2}/publication_utilisateur/publications/${publication_id}`, getAuthHeaders())
 }
 
-// Récuperer mes publications
+// supprimer une publications
 export const deletePublication = (publication_id)  => {
   return axios.delete(`${apiUrl2}/publication_utilisateur/publications/${publication_id}`, getAuthHeaders())
 }
@@ -309,6 +332,11 @@ export const getImagePublications = ()  => {
 // Récuperer une image par son ID 
 export const getImagePublicationById = (publication_id)  => {
   return axios.get(`${apiUrl2}/publication_utilisateur/publications/${publication_id}/image`, getAuthHeaders())
+}
+
+// Récuperer le nombre total de publications
+export const countPublications = () => {
+  return axios.get(`${apiUrl2}/publication_utilisateur/publications/compte/${publication_id}/image`, getAuthHeaders())
 }
 
 // ====================================
@@ -332,19 +360,32 @@ export const commentProduct = (payload)  => {
 }
 
 
-// recuperer un commentaire pour un évenement, publication, produit par son id 
-export const getComment = (comment_id)  => {
-  return axios.get(`${apiUrl5}/commentaire/comment/${comment_id}`, getAuthHeaders())
+// Récupérer un commentaire par son ID (payload = query params optionnels)
+export const getComment = (comment_id, payload = {}) => {
+  return axios.get(
+    `${apiUrl5}/commentaire/comment/${comment_id}`,
+    {
+      ...getAuthHeaders(),
+      params: payload // si tu veux passer des query params (optionnel)
+    }
+  )
 }
 
-// mettre a jour un commentaire pour un évenement, publication, produit par son id 
-export const updateComment = (comment_id)  => {
-  return axios.put(`${apiUrl5}/commentaire/update_comment/${comment_id}`, getAuthHeaders())
+// Mettre à jour un commentaire par son ID (payload = corps de la requête)
+export const updateComment = (comment_id, payload) => {
+  return axios.put(
+    `${apiUrl5}/commentaire/update_comment/${comment_id}`,
+    payload,
+    getAuthHeaders()
+  )
 }
 
-// supprimer un commentaire pour un évenement, publication, produit par son id 
-export const deleteComment = (comment_id)  => {
-  return axios.delete(`${apiUrl5}/commentaire/delete_comment/${comment_id}`, getAuthHeaders())
+// Supprimer un commentaire par son ID
+export const deleteComment = (comment_id) => {
+  return axios.delete(
+    `${apiUrl5}/commentaire/delete_comment/${comment_id}`,
+    getAuthHeaders()
+  )
 }
 
 // recuperer les commentaires d'une publication par  son  ID publication
@@ -430,6 +471,45 @@ export const statComments = ()  => {
 
 
 // ====================================
+// ==== REPONSE COMMENTAIRE =============
+// ====================================
+
+// Creez une réponse pour un commentaire
+export  const createResponseComment = (formData)  => {
+  return axios.post(`${apiUrl5}/res_commentaire/create_response_commentaire`, formData, getAuthHeaders())
+}
+
+// Répondre a une réponse commentaire
+export const replyToResponseComment = (formData)  => {
+  return axios.post(`${apiUrl5}/res_commentaire/reply_to_response_commentaire`, formData, getAuthHeaders())
+}
+
+// Mettre a jour une réponse commentaire
+export const updateResponseComment = (id_response, formData)  => {
+  return axios.put(`${apiUrl5}/res_commentaire/update_response_commentaire/${id_response}`, formData, getAuthHeaders())
+}
+
+// Récuperer une réponse commentaire
+export const getResponseComment = (id_response)  => {
+  return axios.get(`${apiUrl5}/res_commentaire/get_response_commentaire/${id_response}`, getAuthHeaders())
+}     
+
+// Récuperer une réponse pour un commentaire
+export const getResponsesForComment = (id_commentaire)  => {
+  return axios.get(`${apiUrl5}/res_commentaire/get_responses_for_comment/${id_commentaire}`, getAuthHeaders())
+}
+
+// Suppression douce de la réponse commentaire
+export const deleteResponseComment = (id_response)  => {
+  return axios.delete(`${apiUrl5}/res_commentaire/soft_delete_response_commentaire/${id_response}`, getAuthHeaders())
+}
+
+// Supprimer une réponse commentaire
+export const hardDeleteResponseComment = (id_response)  => {
+  return axios.delete(`${apiUrl5}/res_commentaire/delete_response_commentaire/${id_response}`, getAuthHeaders())
+}
+
+// ====================================
 // ==== REACTIONS UTILISATEUR =============
 // ====================================
 
@@ -438,30 +518,71 @@ export const reactPub = (payload)  => {
   return axios.post(`${apiUrl6}/reaction/react_for_pub`, payload, getAuthHeaders())
 }
 
+// Récuperer la reaction d'une publication par son ID
+export const getReactPub = (id_publication)  => {
+  return axios.get(`${apiUrl6}/reaction/get_reaction_for_pub`, {
+    params: { id_publication },
+    ...getAuthHeaders()
+  });
+};
+
 
 // creer une reaction pour un commentaire
 export const reactComment = (payload)  => {
   return axios.post(`${apiUrl6}/reaction/react_for_comment`, payload, getAuthHeaders())
 }
 
+export const getReactComment = (id_comment)  => {
+  return axios.get(`${apiUrl6}/reaction/get_reaction_for_comment`, {
+    params: { id_comment },
+    ...getAuthHeaders()
+  });
+};
+
+
 // creer une reaction pour un évenement
 export const reactEvent = (payload)  => {
   return axios.post(`${apiUrl6}/reaction/react_for_event`, payload, getAuthHeaders())
 }
+
+// Récuperer la reaction d'un évenement par son ID
+export const getReactEvent = (id_event)  => {
+  return axios.get(`${apiUrl6}/reaction/get_reaction_for_event`, {
+    params: { id_event },
+    ...getAuthHeaders()
+  });
+};
 
 // creer une reaction pour un produit
 export const reactProduct = (payload)  => {
   return axios.post(`${apiUrl6}/reaction/react_for_product`, payload, getAuthHeaders())
 }
 
+// Récuperer la reaction d'un produit par son ID
+export const getReactProduct = (id_product)  => {
+  return axios.get(`${apiUrl6}/reaction/get_reaction_for_product`, {
+    params: { id_product },
+    ...getAuthHeaders()
+  });
+};
+
 // mettre a jour  une reaction 
-export const updateReact = (id_reaction)  => {
-  return axios.put(`${apiUrl6}/reaction/update_reaction/${id_reaction}`, getAuthHeaders())
+export const updateReact = (id_reaction, payload)  => {
+  return axios.put(`${apiUrl6}/reaction/update_reaction`, payload,
+    {
+      params: { id_reaction },
+       ...getAuthHeaders()
+    },
+    )
 }
 
 // supprimer la reaction 
 export const deleteReact = (id_reaction)  => {
-  return axios.delete(`${apiUrl6}/reaction/delete_reaction/${id_reaction}`, getAuthHeaders())
+  return axios.delete(`${apiUrl6}/reaction/delete_reaction`,
+    {
+      params: { id_reaction },
+      ...getAuthHeaders()
+    })
 }
 
 // Le nombre de reaction d'un utilisateur 
@@ -559,5 +680,68 @@ export const getReactionsByType = (id_utilisateur) => {
 }
 
 
+// ====================================
+// ==== NOTIFICATION =============
+// ====================================
+
+
+// ====================================
+// ==== SUIVI  =============
+// ====================================
+
+// Suivre un utilisateur
+export const suivreUser = (id_suivi) => {
+    const id_suiveur = getUserIdFromToken();
+
+    if (!id_suiveur) {
+      console.error("Erreur: Impossible de trouver l'ID de l'utilisateur connecté.");
+      throw new Error("ID utilisateur manquant pour la requête de suivi.");
+    }
+
+    if (id_suiveur === id_suivi) {
+      console.error("⛔ Un utilisateur ne peut pas se suivre lui-même !");
+      throw new Error("Auto-suivi interdit.");
+    }
+
+    const payload = {
+        id_suivi: id_suivi,
+        id_suiveur: id_suiveur
+    };
+
+    console.log("📤 Payload envoyé à l'API :", payload);
+
+    return axios.post(`${apiUrl8}/suivi/suivre_un_utilisateur`, payload, getAuthHeaders());
+};
+
+
+// Récuperer les followers d'un utilisateur 
+export const getFollowerUser = () =>{
+   return axios.get(`${apiUrl8}/suivi/mes_utilisateurs_suivis`, getAuthHeaders())
+}
+
+// Récuperer tous les utilisateurs disponibles
+export const getUsersAvailable = () =>{
+   return axios.get(`${apiUrl8}/suivi/utilisateurs_disponibles`, getAuthHeaders())
+}
+
+// supprimer le follower d'un utilisateur 
+export const deleteFollowerUser = (suivi_id) =>{
+   return axios.delete(`${apiUrl8}/suivi/supprimer_suivi/${suivi_id}`, getAuthHeaders())
+}
+
+// Récuperer le nombre d'utilisateur suivis
+export const getCountFollowedUser = () =>{
+   return axios.get(`${apiUrl8}/suivi/nombre_utilisateurs_suivis`, getAuthHeaders())
+}
+
+// Récuperer le nombre de followers pour un utilisateur
+export const getCountFollowerForUser = (user_id) =>{
+   return axios.get(`${apiUrl8}/suivi/nombre_abonnes/${user_id}`, getAuthHeaders())
+}
+
+// Récuperer le badge pour un utilisateur
+export const getBadgeForUser = (user_id) =>{
+   return axios.get(`${apiUrl8}/suivi/badge_utilisateur/${user_id}`, getAuthHeaders())
+}
 
 
