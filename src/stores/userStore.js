@@ -13,9 +13,14 @@ import { getUserPhoto, updateReact, deleteReact, getReactComment, getReactPub,
   getUserInfos,
   updateUserInfos,
   updatePhotoProfil,
-  deletePhotoProfil} from '../services/api';
+  deletePhotoProfil,
+  getReactReplyComment,
+  getCurrentUser,
+  getUserPhotoById} from '../services/api';
 
 export const useUserStore = defineStore('user', () => {
+  // État pour stocker les informations de l'utilisateur connecté.
+  const user = ref(null);
   const userProfileImage = ref('');
   const defaultProfileImage = '/user.png';
   const isPhotoLoaded = ref(false);
@@ -24,6 +29,21 @@ export const useUserStore = defineStore('user', () => {
   const reactionLoading = ref(false);
   const reactionError = ref(null);
 
+  // Récuperer l'utilisateur connécté
+  const fetchCurrentUser = async() =>{
+    try {
+      // L'appel API retourne les données de l'utilisateur
+      const response = await getCurrentUser();
+      // On met à jour l'état 'user' avec les données reçues.
+      user.value = response.data;
+    } catch (error) {
+      console.error("Erreur lors de la récupération de l'utilisateur", error);
+      // En cas d'erreur, on s'assure que l'utilisateur est nul.
+      user.value = null;
+    }
+  }
+  
+  // Récuperer la photo de l'utilisateur
   const fetchUserPhoto = async () => {
     if (isPhotoLoaded.value) return;
 
@@ -72,16 +92,27 @@ export const useUserStore = defineStore('user', () => {
     }
   };
 
-// Fonction pour récupérer la réaction d'un commentaire par son ID
+// Fonction pour récupérer la réaction d'un commentaire 
 const reactionComment = async (id_comment) => {
   try {
     const response = await getReactComment(id_comment);
     return response.data;
   } catch (error) {
-    console.error('Erreur lors de la récupération de la réaction de l\évenement :', error.response?.data || error.message || error);
+    console.error('Erreur lors de la récupération de la réaction du commentaire :', error.response?.data || error.message || error);
     return null;
   }
 };
+
+// Fonction pour récuperer la reaction d'une réponse commentaire
+const reactionReplyComment = async(id_response_commentaire) =>{
+  try {
+    const response  = await getReactReplyComment(id_response_commentaire)
+    return response.data
+  } catch (error) {
+    console.error("Erreur lors de la récuperation de la reaction pour la reponse du commentaire")
+    return null;
+  }
+}
 
 // Fonction pour récuperer les réactions d'une publication
 const reactionPub = async (id_publication) => {
@@ -105,29 +136,19 @@ const reactionEvent = async (id_event) => {
   }
 };
 
-// Fonction pour creez une réponse a un commentaire
-const responseComment = async ({ id_commentaire, description }) => {
+// Crée une réponse à un commentaire
+const responseComment = async (formData) => {
   try {
-    if (!id_commentaire || !description) {
-      throw new Error('Veuillez remplir tous les champs');
-    }
-
-    const formData = new FormData();
-    formData.append('id_commentaire', id_commentaire);
-    formData.append('description', description);
-
-    return await createResponseComment(formData);
+    const response = await createResponseComment(formData);
+    return response.data;
   } catch (error) {
-    console.error(
-      'Erreur lors de la création de la réponse au commentaire :',
-      error.response?.data || error.message || error
-    );
-    throw error; // utile si tu veux gérer l'erreur dans le frontend plus haut
+    console.error('Erreur API lors de la création de la réponse :', error);
+    throw error; // Relancer l'erreur originale pour que le composant puisse la traiter
   }
 };
 
-// Fonction pour répondre à une réponse de commentaire
-const replyToResponseComment = async ({ id_response_commentaire, description}) =>{
+// Fonction pour creez une répondre à une réponse commentaire
+const createreplyToResponseComment = async ({ id_response_commentaire, description}) =>{
   try {
     if (!id_response_commentaire || !description) {
     throw new Error('Veuillez remplir tous les champs');
@@ -167,22 +188,22 @@ const updateResponseComment = async ({ id_response_commentaire, description }) =
   }
 }
 
-// Fonction pour récuperer la réponse du commentaire
-const getResponseComment = async (id_response) => {
+// Fonction pour récuperer la réponse d'une réponse commentaire
+const getResponseReplyComment = async (id_response) => {
   try {
     const response = await getResponseComment(id_response);
     return response.data;
   } catch (error) {
-    console.error('Erreur lors de la récupération de la réponse commentaire :', error.response?.data || error.message || error);
+    console.error('Erreur lors de la récupération de la réponse du commentaire :', error.response?.data || error.message || error);
     return null;
   }
 }
 
-// Fonction pour récuperer une réponse pour une réponse commentaire
-const getResponsesForComment = async (id_commentaire) => {
+// Fonction pour récuperer une réponse pour un commentaire
+const responsesForComment = async (id_commentaire) => {
   try {
     const response = await getResponsesForComment(id_commentaire);
-    return response.data;
+    return response
   } catch (error) {
     console.error('Erreur lors de la récupération des réponses pour le commentaire :', error.response?.data || error.message || error);
     return null;
@@ -333,10 +354,55 @@ const deletePhoto = async() =>{
 }
 
 
+// ====================================
+// ==== FONCTION UTILISATEUR =============
+// ====================================
+
+// Fonction pour mettre a jour les informations d'un utilisateur
+const updateInfoUser = async(payload) =>{
+  try {
+    const response = await updateUserInfos(payload)
+    return response.data
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la mise a jour des informations de l'utilisateur", error.response?.data)
+  }
+}
+
+// Fonction pour modifier la photo de profil 
+const updatePhotoProfilUser = async(formData) =>{
+  try {
+    const response = await updatePhotoProfil(formData)
+    return response
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la mise a jour de la photo de profil", error.response?.data)
+  }
+}
+
+// Fonction pour supprimer la photo de profil 
+const deletePhotoProfilUser = async() =>{
+  try {
+    const response = await deletePhotoProfil()
+    return response
+  } catch (error) {
+    console.error("une erreur est survenue lors de la suppression de la photo de profil", error.response?.data)
+  }
+}
+
+// Fonction pour récuperer la photo de profil de l'utilisateur par son ID 
+const fetchUserPhotoById = async(user_id) =>{
+  try {
+    await getUserPhotoById(user_id)
+  } catch (error) {
+    console.error("une erreur est survenue lors de la mise a jour de la photo de profil de l'utilisateur", error)
+  }
+}
 
   return {
+    user, // Exposer le nouvel état 'user'
     userProfileImage,
     fetchUserPhoto,
+    fetchUserPhotoById,
+    fetchCurrentUser,
     updateReaction,
     deleteReaction,
     reactionLoading,
@@ -347,8 +413,8 @@ const deletePhoto = async() =>{
     responseComment,
     replyToResponseComment,
     updateResponseComment,
-    getResponseComment,
-    getResponsesForComment,
+    getResponseReplyComment,
+    responsesForComment,
     deleteResponseComment,
     hardDeleteResponseComment,
     followUser,
@@ -362,6 +428,11 @@ const deletePhoto = async() =>{
     updateInfos,
     updatePhoto,
     deletePhoto,
+    createreplyToResponseComment,
+    reactionReplyComment,
+    updateInfoUser,
+    updatePhotoProfilUser,
+    deletePhotoProfilUser,
     defaultProfileImage,
 
   };

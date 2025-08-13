@@ -135,7 +135,8 @@ export const getUserRole = () => {
 
 export async function getCurrentUser() {
   const token = localStorage.getItem('access_token')
-  return await axios.get(`${apiUrl}/user/current_user`, {
+  // Correction: Utiliser la route qui retourne les informations complètes de l'utilisateur.
+  return await axios.get(`${apiUrl}/user/current_user_infos`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -232,7 +233,7 @@ export const resetPassword = () => {
 
 // Mise a jour des informations de l'utilisateur connecté par lui meme
 export const updateUserInfos = (payload) => {
-  return axios.patch(`${apiUrl}/user_infos/photo_profil`,payload, getAuthHeaders())
+  return axios.patch(`${apiUrl}/user_infos/update_user_infos`,payload, getAuthHeaders())
 }
 
 // Modifier la photo de profill
@@ -479,7 +480,8 @@ export  const createResponseComment = (formData)  => {
   return axios.post(`${apiUrl5}/res_commentaire/create_response_commentaire`, formData, getAuthHeaders())
 }
 
-// Répondre a une réponse commentaire
+
+// creez une Répondre a une réponse commentaire
 export const replyToResponseComment = (formData)  => {
   return axios.post(`${apiUrl5}/res_commentaire/reply_to_response_commentaire`, formData, getAuthHeaders())
 }
@@ -489,7 +491,7 @@ export const updateResponseComment = (id_response, formData)  => {
   return axios.put(`${apiUrl5}/res_commentaire/update_response_commentaire/${id_response}`, formData, getAuthHeaders())
 }
 
-// Récuperer une réponse commentaire
+// Récuperer une réponse pour une réponse commentaire
 export const getResponseComment = (id_response)  => {
   return axios.get(`${apiUrl5}/res_commentaire/get_response_commentaire/${id_response}`, getAuthHeaders())
 }     
@@ -532,6 +534,7 @@ export const reactComment = (payload)  => {
   return axios.post(`${apiUrl6}/reaction/react_for_comment`, payload, getAuthHeaders())
 }
 
+// récuperer la reaction pour un commentaire
 export const getReactComment = (id_comment)  => {
   return axios.get(`${apiUrl6}/reaction/get_reaction_for_comment`, {
     params: { id_comment },
@@ -539,6 +542,18 @@ export const getReactComment = (id_comment)  => {
   });
 };
 
+// creer une reaction pour une reponse commentaire
+export const reactReplyComment = (payload)  => {
+  return axios.post(`${apiUrl6}/reaction/react_for_response_comment`, payload, getAuthHeaders())
+}
+
+// récuperer la reaction pour une réponse commentaire
+export const getReactReplyComment = (id_response_comment)  => {
+  return axios.get(`${apiUrl6}/reaction/get_reaction_for_response_comment`, {
+    params: { id_response_comment },
+    ...getAuthHeaders()
+  });
+};
 
 // creer une reaction pour un évenement
 export const reactEvent = (payload)  => {
