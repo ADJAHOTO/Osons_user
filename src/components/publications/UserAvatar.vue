@@ -1,10 +1,10 @@
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { ref, computed, watchEffect } from 'vue';
 import { useUserStore } from '../../stores/userStore';
 
 const props = defineProps({
-  userPhoto: {
-    type: String,
+  userId: {
+    type: [String],
     default: null
   },
   username: {
@@ -29,41 +29,42 @@ const iconSizeClasses = {
   lg: 'w-10 h-10'
 };
 
-const userStore = useUserStore()
-const userPhoto = ref(null)
+const userStore = useUserStore();
+const userPhoto = ref(null);
+const isLoading = ref(false);
 
-// Récuperer la photo depuis la base de donnees sous forme d'une url 
 const photoUrl = computed(() => {
-  // Priorité à la prop, puis à la photo locale
-  const photo = props.userPhoto || userPhoto.value;
-  return photo ? `data:image/jpeg;base64,${photo}` : null;
+  return userPhoto.value ? `data:image/jpeg;base64,${userPhoto.value}` : null;
 });
 
-
-async function fetchPhotoUser(userId) {
-  try {
-    const userData = await userStore.fetchUserPhotoById(userId);
-    // Adaptez selon la structure réelle de votre réponse
-    userPhoto.value = userData?.photo || 
-                      userData?.data?.photo || 
-                      null;
-  } catch (error) {
-    console.error("Failed to fetch user photo", error);
+async function fetchPhotoUser(id) {
+  if (!id) {
     userPhoto.value = null;
+    return;
+  }
+  isLoading.value = true;
+  try {
+    const response = await userStore.fetchUserPhotoById(id);
+    userPhoto.value = response?.data?.photo || null;
+  } catch (error) {
+    userPhoto.value = null;
+  } finally {
+    isLoading.value = false;
   }
 }
 
-onMounted(() =>{
-  fetchPhotoUser()
-})
+watchEffect(() => {
+  fetchPhotoUser(props.userId);
+});
+
 </script>
 
 <template>
-  <div 
+  <div
     :class="[sizeClasses[size], 'bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden']"
   >
-    <img 
-      v-if="photoUrl"
+    <img
+      v-if="photoUrl && !isLoading"
       :src="photoUrl"
       :alt="username ? `${username} avatar` : 'User avatar'"
       class="w-full h-full object-cover"

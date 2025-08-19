@@ -3,8 +3,10 @@ import UserAvatar from './UserAvatar.vue';
 import ReactionButtons from './ReactionButtons.vue';
 import CommentReplySection from './CommentReplySection.vue';
 import { ref } from 'vue';
+import { useUserStore } from '../../stores/userStore';
+import { defineEmits } from 'vue';
 
-defineProps({
+const props = defineProps({
   comment: Object,
   publicationUsername: String,
   reactingComments: Set,
@@ -13,6 +15,74 @@ defineProps({
 });
 
 const showReplies = ref(false)
+const userStore = useUserStore();
+const emit = defineEmits([
+  'comment-deleted',
+  'comment-updated'
+]);
+
+const isEditing = ref(false);
+// Pour stocker le contenu du commentaire en cours d'édition
+const editedDescription = ref('')
+
+// Initialiser la valeur d'édition avec le contenu actuel
+const initializeEdit = () => {
+  editedDescription.value = props.comment.description;
+  isEditing.value = true;
+};
+
+
+// Mettre a jour le commentaire
+async function updateCommentaire() {
+  if (!props.comment.id || !editedDescription.value.trim()) {
+    console.error("Le commentaire et la description sont requis pour la mise à jour");
+    return;
+  }
+  
+  try {
+    const formData = new FormData();
+    formData.append('description', editedDescription.value);
+    
+    const response = await userStore.updateCommentId(props.comment.id, formData);
+    
+    // Émettre l'événement vers le parent avec les données mises à jour
+    emit('comment-updated', {
+      id: props.comment.id,
+      description: editedDescription.value,
+    });
+    
+    console.log('Commentaire mis à jour avec succès');
+    isEditing.value = false;
+  } catch (error) {
+    console.error('Error updating comment:', error.response?.data || error.message);
+  }
+}
+
+// Annuler l'édition
+function cancelEdit() {
+  isEditing.value = false;
+  editedDescription.value = props.comment.description;
+}
+
+// Supprimer un commentaire
+async function deleteCommentaire() {
+  if (!props.comment.id) {
+    console.error("ID du commentaire requis pour la suppression");
+    return;
+  }
+  try {
+    // Appel à l'API pour supprimer le commentaire
+    const response = await userStore.deleteCommentId(props.comment.id, { action: 'delete' });
+    emit('comment-deleted', props.comment.id); // Émettre un événement pour informer le parent de la suppression
+    console.log('Comment deleted successfully');
+  } catch (error) {
+    console.error('Error deleting comment:', error.response?.data || error.message);
+  }
+}
+
+defineExpose({
+  deleteCommentaire,
+});
 </script>
 
 <template>
@@ -26,8 +96,34 @@ const showReplies = ref(false)
           <span class="text-gray-500 text-xxs sm:text-xs">{{ timeAgo(comment.date_creation || new Date()) }}</span>
         </div>
         
-        <div class="bg-gray-100 rounded-lg p-2 sm:p-3 mb-2 sm:mb-3">
+        <!-- Affichage normal ou mode édition -->
+        <div v-if="!isEditing" class="bg-gray-100 rounded-lg p-2 sm:p-3 mb-2 sm:mb-3">
           <p class="text-xs sm:text-sm text-gray-800 leading-relaxed break-words">{{ comment.description }}</p>
+        </div>
+        
+        <!-- Formulaire d'édition -->
+        <div v-else class="bg-gray-100 rounded-lg p-2 sm:p-3 mb-2 sm:mb-3">
+          <textarea
+            v-model="editedDescription"
+            class="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+            rows="3"
+            placeholder="Modifier votre commentaire..."
+          ></textarea>
+          <div class="flex justify-end space-x-2 mt-2">
+            <button
+              @click="cancelEdit"
+              class="px-3 py-1 text-xs text-gray-600 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              Annuler
+            </button>
+            <button
+              @click="updateCommentaire"
+              :disabled="!editedDescription.trim()"
+              class="px-3 py-1 text-xs text-white bg-orange-500 rounded hover:bg-orange-600 disabled:bg-gray-300"
+            >
+              Enregistrer
+            </button>
+          </div>
         </div>
         
         <ReactionButtons
@@ -38,14 +134,31 @@ const showReplies = ref(false)
         />
 
         <!-- Section pour les réponses -->
-        <div class="mt-2">
-          <!-- Bouton pour afficher/masquer les réponses -->
-          <button
-            @click="showReplies = !showReplies"
-            class="text-blue-500 hover:underline text-xs"
-          >
-            {{ showReplies ? 'Masquer' : 'Reply' }}
-          </button>
+        <div class="mt-3">
+          <div class="flex items-center space-x-5">
+            <!-- Bouton pour afficher/masquer les réponses -->
+            <button
+              @click="showReplies = !showReplies"
+              class="text-blue-500 hover:underline text-xs cursor-pointer"
+            >
+              {{ showReplies ? 'Masquer' : 'Reply' }}
+            </button>
+
+            <button
+              v-if="!isEditing"
+              @click="initializeEdit"
+              class="text-blue-500 hover:underline text-xs cursor-pointer"
+            >
+              Modifier
+            </button>
+
+            <button
+              @click="deleteCommentaire"
+              class="text-red-500 hover:underline cursor-pointer text-xs"
+            >
+              Supprimer
+            </button>
+          </div>
 
           <CommentReplySection
             v-if="showReplies"
@@ -54,7 +167,6 @@ const showReplies = ref(false)
             :timeAgo="timeAgo"
           />
         </div>
-
       </div>
     </div>
   </div>

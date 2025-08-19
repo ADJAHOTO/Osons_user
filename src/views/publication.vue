@@ -15,6 +15,7 @@ import FollowedUsers from '../components/sidebar/FollowedUsers.vue';
 import SuggestedUsers from '../components/sidebar/SuggestedUsers.vue';
 import UserInfos from '../components/publications/UserInfos.vue';
 import NotificationsList from '../components/notifications/NotificationsList.vue';
+import UserAvatar from '../components/publications/UserAvatar.vue';
 
 const users = ref([]);
 const usersfollow = ref([]);
@@ -47,6 +48,11 @@ const isDeleting = ref({});
 const subReplies = ref({});
 const replyToReplyComment = ref({});
 const isReplyingToReply = ref({});
+
+const isMobileMenuOpen = ref(false);
+const toggleMobileMenu = () => {
+  isMobileMenuOpen.value = !isMobileMenuOpen.value;
+};
 
 const userStore = useUserStore();
 
@@ -91,7 +97,7 @@ async function loadAllPublications() {
   }
 }
 
-// Fonction pour charger les publications de l'utilisateur connecté
+// Fonction pour charger les publications de l\'utilisateur connecté
 async function loadMyPublications() {
   try {
     isLoading.value = true;
@@ -105,14 +111,14 @@ async function loadMyPublications() {
       }
     }
   } catch (error) {
-    console.error("Erreur lors du chargement des publications de l'utilisateur:", error);
+    console.error("Erreur lors du chargement des publications de l\'utilisateur:", error);
     publications.value = [];
   } finally {
     isLoading.value = false;
   }
 }
 
-// Fonction pour récupérer les réactions d'une publication
+// Fonction pour récupérer les réactions d\'une publication
 async function fetchPublicationReactions(pubId) {
   try {
     const userReaction = await userStore.reactionPub(pubId);
@@ -174,6 +180,9 @@ async function createPost(newPubData) {
     reactions.value[newPub.id] = { type: null, id: null };
     comments.value[newPub.id] = [];
 
+    // Mettre à jour le compteur de commentaires dans le store
+    await userStore.getCountPublications();
+
   } catch (error) {
     console.error("Une erreur est survenue :", error.response?.data || error.message || error);
   } finally {
@@ -210,6 +219,9 @@ async function commentPublication(pubId) {
     comments.value[pubId].unshift(newCommentObj);
     newComments.value[pubId] = '';
     showCommentInput.value[pubId] = false;
+
+    // Mettre à jour le compteur de commentaires dans le store
+    await userStore.getCountCommentaire();
 
   } catch (error) {
     console.error("Erreur:", error);
@@ -255,7 +267,7 @@ async function togglePublicationReaction(pubId, reactionType) {
 
   } catch (error) {
     console.error("Erreur lors de la réaction à la publication :", error.response?.data || error.message || error);
-    // En cas d'erreur, annuler la mise à jour optimiste
+    // En cas d\'erreur, annuler la mise à jour optimiste
     reactions.value[pubId] = originalReaction;
   } finally {
     reactingPublications.value.delete(pubId);
@@ -286,7 +298,7 @@ async function toggleCommentReaction(commentId, reactionType) {
     return;
   }
 
-  // Sauvegarde de l'état original pour rollback si erreur
+  // Sauvegarde de l\'état original pour rollback si erreur
   const originalState = {
     reaction: comment.userReaction,
     reactionId: comment.userReactionId
@@ -325,7 +337,7 @@ async function toggleCommentReaction(commentId, reactionType) {
     if (response?.data?.id) {
       comment.userReactionId = response.data.id;
     } else {
-      // Fallback si l'API ne retourne pas l'ID
+      // Fallback si l\'API ne retourne pas l\'ID
       const freshReaction = await userStore.reactionComment(commentId);
       if (freshReaction) {
         comment.userReaction = freshReaction.type;
@@ -334,7 +346,7 @@ async function toggleCommentReaction(commentId, reactionType) {
     }
 
   } catch (error) {
-    // Rollback en cas d'erreur
+    // Rollback en cas d\'erreur
     console.error('Erreur réaction commentaire:', {
       error,
       commentId,
@@ -475,7 +487,7 @@ async function fetchReply(commentId, replyToCommentId) {
     const response = await userStore.getResponseForComment(commentId, replyToCommentId);
     return response.data || null;
   } catch (error) {
-    console.error("Erreur lors de la récupération d'une réponse de commentaire :", error.response?.data || error.message || error);
+    console.error("Erreur lors de la récupération d\'une réponse de commentaire :", error.response?.data || error.message || error);
     return null;
   }
 }
@@ -555,11 +567,11 @@ async function followUser(userId) {
     await fetchfollowUser();
     await fetchUser();
   } catch (error) {
-    console.error("Une erreur est survenue lors du suivi de l'utilisateur", error);
+    console.error("Une erreur est survenue lors du suivi de l\'utilisateur", error);
   }
 }
 
-// Fonction pour récuperer followers d'un utilisateur
+// Fonction pour récuperer followers d\'un utilisateur
 async function fetchfollowUser() {
   try {
     const response = await userStore.recupererFollowersUser()
@@ -598,13 +610,13 @@ async function unfollowUser(suiviId) {
     await fetchUser();
   } catch (error) {
     console.error("une erreur est survenue lors de la suppression du follower:", error.response?.data);
-    // En cas d'erreur, recharger pour annuler la mise à jour optimiste
+    // En cas d\'erreur, recharger pour annuler la mise à jour optimiste
     await fetchfollowUser();
     await fetchUser();
   }
 }
 
-// fonction pour charger les informations de l'utilisateur
+// fonction pour charger les informations de l\'utilisateur
 async function fetchInfosUser() {
   try {
     const infouser = await userStore.fetchUserInfos()
@@ -635,7 +647,7 @@ async function fetchInfosUser() {
           <h1 class="text-lg sm:text-xl font-bold text-gray-800">Publications</h1>
           
           <!-- Bouton menu mobile -->
-          <button class="lg:hidden text-gray-600 hover:text-orange-600">
+          <button @click="toggleMobileMenu" class="lg:hidden text-gray-600 hover:text-orange-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
@@ -644,13 +656,16 @@ async function fetchInfosUser() {
       </div>
     </header>
 
-    <div class="max-w-10xl mx-auto px-4 sm:px-6 py-6">
+    <div class="max-w-8xl mx-auto px-4 sm:px-6 py-6">
       <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-104px)]">
         
         <!-- Colonne de gauche - Mobile first: cachée par défaut, visible avec menu -->
-        <div class="fixed inset-0 bg-white z-40 transform lg:relative lg:transform-none lg:block w-full lg:w-1/6 space-y-6 p-6 lg:p-0 lg:h-full overflow-y-auto transition-transform duration-300 translate-x-full lg:translate-x-0">
+        <div 
+          class="fixed inset-0 bg-white z-40 transform lg:relative lg:transform-none lg:block w-full lg:w-1/6 space-y-6 p-6 lg:p-0 lg:h-full overflow-y-auto transition-transform duration-300 lg:translate-x-0"
+          :class="{'translate-x-full': !isMobileMenuOpen, 'translate-x-0': isMobileMenuOpen}"
+        >
           <!-- Bouton fermer pour mobile -->
-          <button class="lg:hidden absolute top-4 right-4 text-gray-600 hover:text-orange-600">
+          <button @click="toggleMobileMenu" class="lg:hidden absolute top-4 right-4 text-gray-600 hover:text-orange-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -717,7 +732,7 @@ async function fetchInfosUser() {
         </div>
 
         <!-- Colonne Notifications (masquée sur mobile et tablette) -->
-        <div class="hidden xl:block w-1.5/6 space-y-6 lg:h-full overflow-y-auto">
+        <div class="hidden xl:block w-1/6 space-y-6 lg:h-full overflow-y-auto">
           <NotificationsList :notifications="notifications" />
 
           <!-- Advertisement optimisé -->
@@ -744,7 +759,7 @@ async function fetchInfosUser() {
 
 <style scoped>
 /* Styles de base améliorés */
-* {
+*{
   transition-property: transform, opacity, background-color, color, box-shadow;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
@@ -822,11 +837,6 @@ textarea:focus, input:focus {
 
 /* Responsive design amélioré */
 @media (max-width: 1023px) {
-  /* Masquer la colonne de droite sur tablette */
-  .hidden-xl {
-    display: none;
-  }
-  
   /* Ajustements pour tablette */
   .px-4 {
     padding-left: 1rem;
@@ -866,7 +876,7 @@ textarea:focus, input:focus {
     padding-bottom: 1rem;
   }
   
-  /* Réduire l'espacement entre les éléments */
+  /* Réduire l\'espacement entre les éléments */
   .space-y-6 > * + * {
     margin-top: 1rem;
   }

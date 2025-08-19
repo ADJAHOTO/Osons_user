@@ -1,4 +1,4 @@
-je l'ai fais le dropdown ne souvre plus <script setup>
+<script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
@@ -77,7 +77,10 @@ const checkLogin = async () => {
   if (accessToken) {
     try {
       
-      await getCurrentUser(); 
+      // await getCurrentUser(); 
+
+      await userStore.fetchCurrentUser()
+
       isLoggedIn.value = true;
     } catch (error) {
       // Si la requête échoue (ex: 401 Unauthorized, 403 Forbidden), le token est invalide ou expiré
@@ -99,6 +102,8 @@ const handleClickOutside = (e) => {
 
 const logout = () => {
   localStorage.removeItem('access_token');
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
   isLoggedIn.value = false;
   isProfileDropdownOpen.value = false;
   router.push('/');

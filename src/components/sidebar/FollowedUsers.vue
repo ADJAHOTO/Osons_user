@@ -4,6 +4,15 @@ defineProps({
   formatDate: Function,
   unfollowUser: Function,
 });
+
+
+function formatBase64Image(base64String) {
+  if (!base64String) {
+    return userStore.defaultProfileImage; 
+  }
+  return `data:image/jpeg;base64,${base64String}`;
+}
+
 </script>
 
 <template>
@@ -14,7 +23,10 @@ defineProps({
         <div class="flex items-center space-x-3">
           <!-- Photo de profil ou logo par défaut -->
           <div v-if="user.photo" class="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden">
-            <img :src="user.photo" :alt="user.username" class="w-full h-full object-cover">
+            <img 
+            :src="formatBase64Image(user.photo)" 
+            :alt="user.username" 
+            class="w-full h-full object-cover">
           </div>
           <div v-else class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center">
             <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 24 24">

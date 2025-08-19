@@ -2,6 +2,8 @@
 import { ref } from 'vue';
 import UserAvatar from './UserAvatar.vue';
 import CommentItem from './CommentItem.vue';
+import { defineEmits } from 'vue';
+
 
 const props = defineProps({
   publicationId: [String, Number],
@@ -20,6 +22,8 @@ const emit = defineEmits([
   'update:newComments',
   'cancel-comment',
   'comment-publication',
+  'comment-deleted',
+  'comment-updated'
 ]);
 
 const updateNewComments = (event) => {
@@ -99,6 +103,8 @@ const handleCommentPublication = () => {
             :reactingComments="reactingComments"
             :timeAgo="timeAgo"
             :toggleCommentReaction="toggleCommentReaction"
+            @comment-deleted="emit('comment-deleted', $event)"
+            @comment-updated="emit('comment-updated', $event)"
           />
         </div>
       </div>

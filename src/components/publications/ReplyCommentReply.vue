@@ -4,11 +4,10 @@ import UserAvatar from './UserAvatar.vue';
 import ReactionButtons from './ReactionButtons.vue';
 import { useUserStore } from '../../stores/userStore';
 import { reactComment } from '../../services/api';
-import ReplyCommentReply from './ReplyCommentReply.vue';
 
 // Définir le type de réponse envoyés depuis le composant parent 
 const props = defineProps({
-    commentId: {
+    responseId: {
         type: String,
         required: true
     },
@@ -23,16 +22,16 @@ const props = defineProps({
 })
 
 const userStore = useUserStore()
-const replies = ref([]) // Pour stocker la liste des réponses
+const replies = ref([]) // Pour stocker la liste des réponses des réponses commentaires
 const newReplyContent = ref('') // Pour le contenu des nouveaux commentaires
 const isSubmittingReply = ref(false)
 const reactingReplies = ref(new Set()) // Pour suivre les réponses en cours de réaction (désactiver les boutons)
-const showReplies = ref({})
 
-// Fonction pour récuperer toutes les réponses a un commentaire
+
+// Fonction pour récuperer toutes les réponses a un commentaire déja répondu 
 const fetchReplies = async () => {
   try {
-    const response = await userStore.responsesForComment(props.commentId);
+    const response = await userStore.getResponseReplyComment(props.responseId);
 
     const fetchedReplies = response.data || []
 
@@ -51,24 +50,24 @@ const fetchReplies = async () => {
     }
     replies.value = fetchedReplies;
   } catch (error) {
-    console.error('Erreur lors de la récupération des réponses :', error.response?.data);
+    console.error('Erreur lors de la récupération des réponses aux réponses commentaires :', error.response?.data);
   }
 };
 
 
 // Fonction pour soumettre une nouvelle réponse ou creez une réponse pour le commentaire
-async function submitReply() {
+async function submitReplyToReply() {
   if (!newReplyContent.value.trim() || isSubmittingReply.value) return;
   
   isSubmittingReply.value = true;
   
   try {
     const formData = new FormData();
-    formData.append('id_commentaire', props.commentId);
+    formData.append('id_response_commentaire', props.responseId);
     formData.append('description', newReplyContent.value);
     console.log('Contenu de la description envoyée :', newReplyContent.value); // Ligne de débogage 
 
-    await userStore.responseComment(formData);
+    await userStore.createreplyToResponseComment(formData);
 
     newReplyContent.value = '';
     await fetchReplies();
@@ -83,56 +82,60 @@ async function submitReply() {
   }
 }
 
-// Fonction pôur gérer les réactions aux réponses commentaire
+// Fonction pôur gérer les réactions aux réponses aux réponses commentaire
 async function toggleReplyReaction(replyId, reactionType) {
   if (reactingReplies.value.has(replyId)) return;
+
+  const reply = replies.value.find(r => r.id === replyId);
+  if (!reply) {
+    console.error('Réponse non trouvée');
+    return;
+  }
+
+  const originalReaction = { 
+    userReaction: reply.userReaction, 
+    userReactionId: reply.userReactionId 
+  };
 
   reactingReplies.value.add(replyId);
 
   try {
-    const reply = replies.value.find(r => r.id === replyId);
-    if (!reply) {
-      console.error('Réaction non trouvé');
-      return;
-    }
-
     const currentUserReaction = reply.userReaction;
     const currentReactionId = reply.userReactionId;
 
     // CAS 1: Suppression
     if (currentUserReaction === reactionType && currentReactionId) {
+      reply.userReaction = null;
+      reply.userReactionId = null;
       await userStore.deleteReaction(currentReactionId);
     }
     // CAS 2: Mise à jour
     else if (currentUserReaction && currentReactionId) {
-      const payload = new FormData();
-      payload.append('type', reactionType);
-      await userStore.updateReaction(currentReactionId, payload);
+      reply.userReaction = reactionType;
+      await userStore.updateReaction(currentReactionId, { type: reactionType });
     }
     // CAS 3: Création
     else {
       const formdata = new FormData();
       formdata.append('id_response_comment', replyId);
       formdata.append('type', reactionType);
-      await userStore.replyReactComment(formdata)
-    }
+      await userStore.replyReactComment(formdata);
 
-    // Recharger systématiquement les commentaires pour mettre à jour les réactions
-    await fetchReplies();
+      reply.userReaction = reactionType;
+      reply.userReactionId = response.data.id;
+    }
 
   } catch (error) {
     console.error('Erreur lors de la réaction au commentaire:', error);
-    // En cas d'erreur, recharger aussi pour assurer la cohérence
+    // En cas d'erreur, restaurer l'état précédent
+    reply.userReaction = originalReaction.userReaction;
+    reply.userReactionId = originalReaction.userReactionId;
+    // Optionnel: recharger pour assurer la cohérence
     await fetchReplies();
   } finally {
     reactingReplies.value.delete(replyId);
   }
 }
-
-const toggleReplies = (replyId) => {
-  showReplies.value[replyId] = !showReplies.value[replyId];
-};
-
 
 onMounted(() =>{
     fetchReplies()
@@ -155,7 +158,7 @@ onMounted(() =>{
         ></textarea>
         <div class="flex justify-end mt-1">
           <button
-            @click="submitReply"
+            @click="submitReplyToReply"
             :disabled="!newReplyContent.trim() || isSubmittingReply || newReplyContent.length > 250"
             class="px-4 py-1 bg-orange-500 text-white rounded-md text-sm hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
@@ -184,23 +187,6 @@ onMounted(() =>{
             :reacting="reactingReplies.has(reply.id)"
             @toggle-reaction="(type) => toggleReplyReaction(reply.id, type)"
           />
-           <!-- Section pour les réponses -->
-           <div class="mt-2">
-              <!-- Bouton pour afficher/masquer les réponses -->
-              <button
-                @click="toggleReplies(reply.id)"
-                class="text-blue-500 hover:underline text-xs"
-              >
-                {{ showReplies[reply.id] ? 'Masquer' : 'Reply' }}
-              </button>
-
-              <ReplyCommentReply
-                v-if="showReplies[reply.id]"
-                :responseId="reply.id"
-                :publicationUsername="reply.username"
-                :timeAgo="timeAgo"
-              />
-            </div>
         </div>
       </div>
     </div>

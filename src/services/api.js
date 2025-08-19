@@ -410,6 +410,11 @@ export const getMyTotalComment = ()  => {
   return axios.get(`${apiUrl5}/commentaire/my_comments_count`, getAuthHeaders())
 }
 
+// Récuperer le nombre total de publications 
+export const getMyTotalPublications = ()  => {
+  return axios.get(`${apiUrl2}/publication_utilisateur/publications/compte/`, getAuthHeaders())
+}
+
 // recuperer le nombre total de  commentaire par evenement
 export const getMyTotalCommentByEvent = (event_id)  => {
   return axios.get(`${apiUrl5}/commentaire/commens_count_by_event/${event_id}`, getAuthHeaders())
