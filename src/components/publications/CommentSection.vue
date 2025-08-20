@@ -55,7 +55,7 @@ const handleCommentPublication = () => {
     <!-- Formulaire de commentaire optimisé mobile -->
     <div v-if="showCommentInput" class="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100">
       <div class="flex space-x-2 sm:space-x-3">
-        <UserAvatar :username="publicationUsername" size="sm" />
+        <UserAvatar :userId="publicationUsername" size="sm" />
         <div class="flex-1">
           <textarea
             :value="newComments"

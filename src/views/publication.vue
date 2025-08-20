@@ -247,6 +247,11 @@ async function togglePublicationReaction(pubId, reactionType) {
       // Mise à jour optimiste : supprime la réaction
       reactions.value[pubId] = { type: null, id: null };
       await userStore.deleteReaction(currentId);
+
+
+    // Mettre à jour le compteur de commentaires dans le store
+    await userStore.getCountReactions();
+
     } else if (currentType && currentId) {
       // Mise à jour optimiste : change la réaction
       reactions.value[pubId] = { ...reactions.value[pubId], type: reactionType };
@@ -261,8 +266,13 @@ async function togglePublicationReaction(pubId, reactionType) {
       formData.append('id_publication', pubId);
       formData.append('type', reactionType);
       await reactPub(formData);
+
       // Re-fetch pour obtenir le nouvel ID de la réaction
       await fetchPublicationReactions(pubId);
+
+    // Mettre à jour le compteur de commentaires dans le store
+      await userStore.getCountReactions();
+
     }
 
   } catch (error) {
@@ -313,6 +323,11 @@ async function toggleCommentReaction(commentId, reactionType) {
       comment.userReaction = null;
       comment.userReactionId = null;
       await userStore.deleteReaction(currentReactionId);
+
+
+    // Mettre à jour le compteur de commentaires dans le store
+      await userStore.getCountReactions();
+
       return;
     }
 
@@ -332,7 +347,8 @@ async function toggleCommentReaction(commentId, reactionType) {
     formData.append('type', reactionType);
     
     const response = await reactComment(formData);
-    
+
+
     // Gestion de la réponse
     if (response?.data?.id) {
       comment.userReactionId = response.data.id;
@@ -344,6 +360,9 @@ async function toggleCommentReaction(commentId, reactionType) {
         comment.userReactionId = freshReaction.id;
       }
     }
+
+    // Mettre à jour le compteur de commentaires dans le store
+    await userStore.getCountReactions();
 
   } catch (error) {
     // Rollback en cas d\'erreur
@@ -549,7 +568,7 @@ async function fetchUser() {
       }));
 
       // ✅ Vérification des champs reçus
-      console.log("Utilisateurs récupérés :", users.value);
+      // console.log("Utilisateurs récupérés :", users.value);
     } else {
       console.error("Format de données inattendu:", response);
     }
@@ -566,17 +585,27 @@ async function followUser(userId) {
     // Recharger les listes pour refléter le changement
     await fetchfollowUser();
     await fetchUser();
+
+    // Mettre à jour le compteur des abonnes de l'utilisateur dans le store
+    await userStore.recupererCountFollowerForUser(userId);
+
+    // Mettre à jour le compteur des utilisateur suivi de l'utilisateur courant
+    await userStore.recupererCountFollowerUser();
+
   } catch (error) {
     console.error("Une erreur est survenue lors du suivi de l\'utilisateur", error);
   }
 }
 
-// Fonction pour récuperer followers d\'un utilisateur
+// Fonction pour récuperer followers d'un utilisateur
 async function fetchfollowUser() {
   try {
     const response = await userStore.recupererFollowersUser()
     usersfollow.value = response
-    console.log("Utilisateurs suivis récupérés avec succès :" ,usersfollow.value)
+    // console.log("Utilisateurs suivis récupérés avec succès :" ,usersfollow.value)
+
+     // Mettre à jour le compteur des abonnes de l'utilisateur dans le store
+    await userStore.recupererCountFollowerForUser();
   } catch (error) {
     console.error("Une erreur est survenue lors de la récuperzation des followers:", error.response?.data || error.message)
   }
@@ -608,6 +637,9 @@ async function unfollowUser(suiviId) {
     // Rafraîchir les deux listes pour assurer la cohérence avec le serveur
     await fetchfollowUser();
     await fetchUser();
+
+     // Mettre à jour le compteur des abonnes de l'utilisateur dans le store
+    await userStore.recupererCountFollowerForUser();
   } catch (error) {
     console.error("une erreur est survenue lors de la suppression du follower:", error.response?.data);
     // En cas d\'erreur, recharger pour annuler la mise à jour optimiste
@@ -620,7 +652,8 @@ async function unfollowUser(suiviId) {
 async function fetchInfosUser() {
   try {
     const infouser = await userStore.fetchUserInfos()
-    userInfos.value = infouser
+    userInfos.value = infouser.data
+    // console.log("Informations utilisateur récupérées avec succès :", userInfos.value);
   } catch (error) {
     console.error("Erreur lors de la récuperation des infos de l'utilisateur", error.response?.data)
   }

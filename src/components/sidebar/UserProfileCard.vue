@@ -5,7 +5,9 @@ import { onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 
 const userStore = useUserStore();
-const { commentCount, publicationsCount } = storeToRefs(userStore);
+const { commentCount, publicationsCount, reactionsCount, 
+  countUserFollowed, countFollowersUser
+ } = storeToRefs(userStore);
 
 
 defineProps({
@@ -24,6 +26,9 @@ function formatBase64Image(base64String) {
 onMounted(() => {
   userStore.getCountCommentaire();
   userStore.getCountPublications();
+  userStore.getCountReactions();
+  userStore.recupererCountFollowerUser();
+  userStore.recupererCountFollowerForUser();
 });
 </script>
 
@@ -33,7 +38,12 @@ onMounted(() => {
     @click="handleclick"
   >
     <div class="text-center">
-      <UserAvatar :userPhoto="userInfos.photo" :username="userInfos.username" size="lg" class="mx-auto mb-4" />
+      <UserAvatar 
+      :userId="userInfos.id" 
+      :username="userInfos.username" 
+      size="lg" class="mx-auto mb-4" 
+      />
+      
       <h4 class="font-semibold text-gary-6900 mb-1 text-sm sm:text-base">{{ userInfos.username }}</h4>
       <p class="text-xs sm:text-sm text-gray-600 mb-4">
         {{ userInfos.email}}
@@ -54,7 +64,30 @@ onMounted(() => {
         </svg>
         <span class="text-sm font-medium text-gray-700">{{ publicationsCount }}</span>
       </div>
-     
+
+       <!-- SVG avec nombre de réactions -->
+      <div class="flex items-center justify-center space-x-2 mt-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M9.049 2.928c.374-1.136 1.607-1.136 1.98 0l1.734 5.246 5.962.86a.5.5 0 01.465.61l-3.976 3.878 1.397 5.95a.5.5 0 01-.746.518L10 15.781l-5.323 3.307a.5.5 0 01-.746-.518l1.397-5.95-3.976-3.878a.5.5 0 01.465-.61l5.962-.86 1.734-5.246z" />
+        </svg>
+        <span class="text-sm font-medium text-gray-700">{{ reactionsCount }}</span>
+      </div>
+
+      <!-- Abonnes -->
+      <div class="flex items-center justify-center space-x-2 mt-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM2 17a6 6 0 1112 0H2z" />
+        </svg>
+        <span class="text-sm font-medium text-gray-700">{{ countFollowersUser }}</span>
+      </div>
+
+      <!-- Utilisateurs suivi -->
+      <div class="flex items-center justify-center space-x-2 mt-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M13 7a3 3 0 11-6 0 3 3 0 016 0zM2 17a6 6 0 0112 0H2z" />
+        </svg>
+        <span class="text-sm font-medium text-gray-700">{{ countUserFollowed }}</span>
+      </div>
     </div>
   </div>
 </template>

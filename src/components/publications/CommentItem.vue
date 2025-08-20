@@ -8,7 +8,6 @@ import { defineEmits } from 'vue';
 
 const props = defineProps({
   comment: Object,
-  publicationUsername: String,
   reactingComments: Set,
   timeAgo: Function,
   toggleCommentReaction: Function,
@@ -50,8 +49,6 @@ async function updateCommentaire() {
       id: props.comment.id,
       description: editedDescription.value,
     });
-    
-    console.log('Commentaire mis à jour avec succès');
     isEditing.value = false;
   } catch (error) {
     console.error('Error updating comment:', error.response?.data || error.message);
@@ -74,7 +71,11 @@ async function deleteCommentaire() {
     // Appel à l'API pour supprimer le commentaire
     const response = await userStore.deleteCommentId(props.comment.id, { action: 'delete' });
     emit('comment-deleted', props.comment.id); // Émettre un événement pour informer le parent de la suppression
-    console.log('Comment deleted successfully');
+
+
+    // Mettre à jour le compteur de commentaires dans le store
+    await userStore.getCountCommentaire();
+
   } catch (error) {
     console.error('Error deleting comment:', error.response?.data || error.message);
   }
@@ -88,11 +89,11 @@ defineExpose({
 <template>
   <div class="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
     <div class="flex space-x-2 sm:space-x-3">
-      <UserAvatar :username="publicationUsername" size="sm" />
+      <UserAvatar :userId="comment.id_utilisateur" size="sm" />
       
       <div class="flex-1 min-w-0">
         <div class="flex items-center space-x-1 sm:space-x-2 mb-1">
-          <span class="font-medium text-xs sm:text-sm text-gray-900 truncate">{{ publicationUsername || 'Utilisateur' }}</span>
+          <span class="font-medium text-xs sm:text-sm text-gray-900 truncate">{{ comment.username || 'Utilisateur' }}</span>
           <span class="text-gray-500 text-xxs sm:text-xs">{{ timeAgo(comment.date_creation || new Date()) }}</span>
         </div>
         

@@ -21,13 +21,17 @@ import { getUserPhoto, updateReact, deleteReact, getReactComment, getReactPub,
   reactReplyComment,
   updateComment,
   deleteComment,
-  getMyTotalPublications} from '../services/api';
+  getMyTotalPublications,
+  countUserReact} from '../services/api';
 
 export const useUserStore = defineStore('user', () => {
   // État pour stocker les informations de l'utilisateur connecté.
   const user = ref(null);
   const commentCount = ref(0)
   const publicationsCount = ref(0)
+  const reactionsCount = ref(0);
+  const countUserFollowed = ref(0);
+  const countFollowersUser = ref(0);
   const userProfileImage = ref('');
   const defaultProfileImage = '/user.png';
   const isPhotoLoaded = ref(false);
@@ -159,6 +163,16 @@ const reactionEvent = async (id_event) => {
   }
 };
 
+// Fonction pour récuperer le nombre total de reactions
+const getCountReactions = async () => {
+  try {
+    const response = await countUserReact();
+    reactionsCount.value = response.data.total_reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre total de réactions", error);
+  }
+};
 
 // ====================================
 // ==== FONCTION COMMENTAIRE  =============
@@ -320,25 +334,28 @@ const supprimerFollowerUser = async(suivi_id) => {
   }
 }
 
-// Fonction pour récuperer le nombre d'utilisateur suivi
+// Fonction pour récuperer le nombre d'utilisateur suivi ou le nombre d'utilisateurs suivis par un utilisateur
 const recupererCountFollowerUser = async() =>{
   try {
-    await getCountFollowedUser()
-    return true
+    const response = await getCountFollowedUser()
+    countUserFollowed.value = response.data.nombre_utilisateurs_suivis;
+    return response
   } catch (error) {
     console.error("Une erreur est survenu lors de la récupération du nombre d'utilisateur suivi")
   }
 }
 
-// Fonction pour récuperer le nombre de followers pour un utilisateur
+// Fonction pour récuperer le nombre d'abonnés d'un utilisateur
 const recupererCountFollowerForUser = async(user_id) =>{
   try {
-    await getCountFollowerForUser(user_id)
-    return true
+    const response = await getCountFollowerForUser(user_id)
+    countFollowersUser.value = response.data.nombre_abonnes;
+    return response
   } catch (error) {
     console.error("Une errreur est survenue lors de la récupération du nombre de followers pour l'utilisateur")
   }
 }
+
 
 
 // Fonction pour récuperer le badge d'un utilisateur 
@@ -350,11 +367,16 @@ const recupererBadgeUser = async(user_id) =>{
   }
 }
 
+
+// ====================================
+// ==== FONCTION UTILISATEUR =============
+// ====================================
+
 // Récuperer les informations de l'utilisateur
 const fetchUserInfos = async() =>{
   try {
     const response = await getUserInfos()
-    return response.data
+    return response
   } catch (error) {
     console.log("Une erreur est survenue lors de la récupération des informations de l'utilisateur ", error.response?.data)
   }
@@ -390,10 +412,6 @@ const deletePhoto = async() =>{
   }
 }
 
-
-// ====================================
-// ==== FONCTION UTILISATEUR =============
-// ====================================
 
 // Fonction pour mettre a jour les informations d'un utilisateur
 const updateInfoUser = async(payload) =>{
@@ -435,7 +453,6 @@ const deletePhotoProfilUser = async() =>{
 const fetchUserPhotoById = async(user_id) =>{
   try {
     const response = await getUserPhotoById(user_id);
-    console.log('userStore: API response:', response);
     return response;
   } catch (error) {
     console.error("une erreur est survenue lors de la mise a jour de la photo de profil de l'utilisateur", error);
@@ -473,6 +490,9 @@ const getCountPublications = async() =>{
     user, // Exposer le nouvel état 'user'
     commentCount,
     publicationsCount,
+    reactionsCount,
+    countUserFollowed,
+    countFollowersUser,
     getCountPublications,
     userProfileImage,
     fetchUserPhoto,
@@ -509,6 +529,7 @@ const getCountPublications = async() =>{
     updatePhotoProfilUser,
     deletePhotoProfilUser,
     getCountCommentaire,
+    getCountReactions,
     replyReactComment,
     updateCommentId,
     deleteCommentId,

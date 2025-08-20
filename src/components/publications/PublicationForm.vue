@@ -3,6 +3,7 @@ import { ref } from 'vue';
 
 const props = defineProps({
   isCreatingPost: Boolean
+  
 });
 
 const emit = defineEmits(['create-post']);
