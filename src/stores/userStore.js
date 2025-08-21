@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { getUserPhoto, updateReact, deleteReact, getReactComment, getReactPub, 
   getReactEvent, createResponseComment, replyToResponseComment, updateResponseComment,
   getResponseComment, getResponsesForComment, deleteResponseComment, hardDeleteResponseComment, 
@@ -66,14 +66,19 @@ export const useUserStore = defineStore('user', () => {
   const reactionLoading = ref(false);
   const reactionError = ref(null);
 
+  // Variable pour verifiez si l'utilisateur est authentifié
+  const isAuthenticated = computed(() => {
+    return !!user.value; // Vérifie si l'utilisateur est connecté
+  });
+
   // Récuperer l'utilisateur connécté
   const fetchCurrentUser = async() =>{
     try {
       // L'appel API retourne les données de l'utilisateur
       const response = await getCurrentUser();
-      return response
       // On met à jour l'état 'user' avec les données reçues.
       user.value = response.data;
+      return response
     } catch (error) {
       console.error("Erreur lors de la récupération de l'utilisateur", error);
       // En cas d'erreur, on s'assure que l'utilisateur est nul.
@@ -659,6 +664,7 @@ const getCountReactReponseCommentaire = async(response_comment_id) => {
 
   return {
     user, // Exposer le nouvel état 'user'
+    isAuthenticated,
     commentCount,
     publicationsCount,
     reactionsCount,

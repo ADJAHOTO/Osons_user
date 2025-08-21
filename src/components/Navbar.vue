@@ -9,7 +9,6 @@ const isMenuOpen = ref(false);
 const isScrolled = ref(false);
 const activeSection = ref('home');
 const observer = ref(null);
-const isLoggedIn = ref(false);
 const userStore = useUserStore()
 const isProfileDropdownOpen = ref(false);
 const photoUrl = ref('');
@@ -79,19 +78,17 @@ const checkLogin = async () => {
     try {
       
       // await getCurrentUser(); 
-
-      await userStore.fetchCurrentUser()
-
-      isLoggedIn.value = true;
+      const response = await userStore.fetchCurrentUser()
+      userStore.user = response.data;
     } catch (error) {
       // Si la requête échoue (ex: 401 Unauthorized, 403 Forbidden), le token est invalide ou expiré
       console.error("Erreur lors de la vérification de l'utilisateur connecté :", error.response?.data || error.message);
       localStorage.removeItem('access_token'); 
       localStorage.removeItem('role')
-      isLoggedIn.value = false;
+      userStore.user = null;
     }
   } else {
-    isLoggedIn.value = false; // Pas de token, donc pas connecté
+    userStore.user = null; // Pas de token, donc pas connecté
   }
 };
 
@@ -105,8 +102,8 @@ const logout = () => {
   localStorage.removeItem('access_token');
   localStorage.removeItem('token')
   localStorage.removeItem('user')
+  userStore.user = null; // Réinitialiser l'utilisateur
   console.clear()
-  isLoggedIn.value = false;
   isProfileDropdownOpen.value = false;
   router.push('/');
 };
@@ -198,7 +195,7 @@ async function fetchUserPhoto() {
           </a>
           
           <!-- Menu Profil (si connecté) -->
-          <div v-if="isLoggedIn" class="profile-dropdown relative ml-4">
+          <div v-if="userStore.isAuthenticated" class="profile-dropdown relative ml-4">
             <button 
               @click="toggleProfileDropdown"
               class="flex items-center gap-1 focus:outline-none"
@@ -289,7 +286,7 @@ async function fetchUserPhoto() {
         </a>
 
         <!-- Menu Profil (si connecté) -->
-        <div v-if="isLoggedIn" class="pt-2 border-t border-gray-200">
+        <div v-if="userStore.isAuthenticated" class="pt-2 border-t border-gray-200">
           <router-link 
             to="/profile"
             class="block px-3 py-2 font-medium text-gray-900 hover:bg-gray-100 rounded-lg"
