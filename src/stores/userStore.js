@@ -22,7 +22,20 @@ import { getUserPhoto, updateReact, deleteReact, getReactComment, getReactPub,
   updateComment,
   deleteComment,
   getMyTotalPublications,
-  countUserReact} from '../services/api';
+  countUserReact,
+  getMyTotalCommentByEvent,
+  getMyTotalCommentByPub,
+  getMyTotalCommentByProduct,
+  countReactType,
+  countReactPub,
+  countReactTypeEvt,
+  countReactEvt,
+  countReactTypeProd,
+  countReactProd,
+  countReactTypeComment,
+  countReactComment,
+  countReactTypeResponseComment,
+  countReactResponseComment} from '../services/api';
 
 export const useUserStore = defineStore('user', () => {
   // État pour stocker les informations de l'utilisateur connecté.
@@ -32,6 +45,19 @@ export const useUserStore = defineStore('user', () => {
   const reactionsCount = ref(0);
   const countUserFollowed = ref(0);
   const countFollowersUser = ref(0);
+  const countCommentEvent = ref(0);
+  const countCommentPublication = ref(0);
+  const countCommentProduct = ref(0);
+  const countReactTypePublication = ref(0);
+  const countReactPublication = ref(0);
+  const countReactTypeEvenement = ref(0);
+  const countReactEvenement = ref(0);
+  const countReactTypeProduit = ref(0);
+  const countReactProduit = ref(0);
+  const countReactTypeCommentaire = ref(0);
+  const countReactCommentaire = ref(0);
+  const countReactTypeReponseCommentaire = ref(0);
+  const countReactReponseCommentaire = ref(0);
   const userProfileImage = ref('');
   const defaultProfileImage = '/user.png';
   const isPhotoLoaded = ref(false);
@@ -45,6 +71,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       // L'appel API retourne les données de l'utilisateur
       const response = await getCurrentUser();
+      return response
       // On met à jour l'état 'user' avec les données reçues.
       user.value = response.data;
     } catch (error) {
@@ -356,12 +383,11 @@ const recupererCountFollowerForUser = async(user_id) =>{
   }
 }
 
-
-
 // Fonction pour récuperer le badge d'un utilisateur 
 const recupererBadgeUser = async(user_id) =>{
   try {
-    await getBadgeForUser(user_id)
+    const response =await getBadgeForUser(user_id)
+    return response
   } catch (error) {
     console.error("Une erreur est survenue lors de la récupération du badge de l'utilisateur")
   }
@@ -447,8 +473,6 @@ const deletePhotoProfilUser = async() =>{
   }
 }
 
-
-
 // Fonction pour récuperer la photo de profil de l'utilisateur par son ID 
 const fetchUserPhotoById = async(user_id) =>{
   try {
@@ -460,9 +484,9 @@ const fetchUserPhotoById = async(user_id) =>{
   }
 }
 
-// ====================================
-// ==== NOMBRE DE COMMENTAIRE PAR  =============
-// ====================================
+// ========================================
+// ==== NOMBRE DE COMMENTAIRE PAR  ========
+// ========================================
 
 // récuperer le nombre total de commentaire
 const getCountCommentaire = async() =>{
@@ -486,22 +510,196 @@ const getCountPublications = async() =>{
   }
 }
 
+// Nombre total de commentaire par évenement
+const getCountCommentaireEvent = async(event_id) => {
+  try {
+    const response = await getMyTotalCommentByEvent(event_id);
+    countCommentEvent.value = response.data.comment_count;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre total de commentaires pour l'événement", error);
+  }
+}
+
+// Nombre total de commentaire par publication
+const getCountCommentairePublication = async(publication_id) => {
+  try {
+    const response = await getMyTotalCommentByPub(publication_id);
+    countCommentPublication.value = response.data.comment_count;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre total de commentaires pour la publication", error);
+  }
+}
+
+// Nombre total de commentaire par produict
+const getCountCommentaireProduct = async(product_id) => {
+  try {
+    const response = await getMyTotalCommentByProduct(product_id)
+    countCommentProduct.value = response.data.comment_count
+    return response
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre total de commentaires pour le produit:", error)
+  }
+}
+
+// ========================================
+// ==== NOMBRE DE REACTIONS PAR  ==========
+// ========================================
+
+// Nombre total de réactions par type de reaction pour une publication
+const getCountReactTypePublication = async(publication_id) => {
+  try {
+    const response = await countReactType(publication_id);
+    countReactTypePublication.value = response.data.reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre de réactions par type pour la publication", error);
+  }
+}
+
+// Nombre total de réactions pour une publication
+const getCountReactPublication = async(publication_id) => {
+  try {
+    const response = await countReactPub(publication_id);
+    countReactPublication.value = response.data.total_reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre total de réactions pour la publication", error);
+  }
+}
+
+// Nombre total de réactions par type de reaction pour un évenement
+const getCountReactTypeEvenement = async(event_id) => {
+  try {
+    const response = await countReactTypeEvt(event_id);
+    countReactTypeEvenement.value = response.data.reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre de réactions par type pour l'événement", error);
+  }
+}
+
+// Nombre total de réactions pour un évenement
+const getCountReactEvenement = async(event_id) => {
+  try {
+    const response = await countReactEvt(event_id);
+    countReactEvenement.value = response.data.total_reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre total de réactions pour l'événement", error);
+  }
+}
+
+// Nombre total de réactions par type de reaction pour un produit
+const getCountReactTypeProduit = async(product_id) => {
+  try {
+    const response = await countReactTypeProd(product_id);
+    countReactTypeProduit.value = response.data.reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre de réactions par type pour le produit", error);
+  }
+}
+
+// Nombre total de réactions pour un produit
+const getCountReactProduit = async(product_id) => {
+  try {
+    const response = await countReactProd(product_id);
+    countReactProduit.value = response.data.total_reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre total de réactions pour le produit", error);
+  }
+}
+
+// Nombre total de réactions par type de reaction pour un commentaire
+const getCountReactTypeCommentaire = async(comment_id) => {
+  try {
+    const response = await countReactTypeComment(comment_id);
+    countReactTypeCommentaire.value = response.data.reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre de réactions par type pour le commentaire", error);
+  }
+}
+
+// Nombre total de réactions pour un commentaire
+const getCountReactCommentaire = async(comment_id) => {
+  try {
+    const response = await countReactComment(comment_id);
+    countReactCommentaire.value = response.data.total_reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre total de réactions pour le commentaire", error);
+  }
+}
+
+// Nombre total de réactions par type de reaction pour une réponse commentaire
+const getCountReactTypeReponseCommentaire = async(response_comment_id) => {
+  try {
+    const response = await countReactTypeResponseComment(response_comment_id);
+    countReactTypeReponseCommentaire.value = response.data.reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre de réactions par type pour la réponse commentaire", error);
+  }
+}
+
+// Nombre total de réactions pour une réponse commentaire
+const getCountReactReponseCommentaire = async(response_comment_id) => {
+  try {
+    const response = await countReactResponseComment(response_comment_id);
+    countReactReponseCommentaire.value = response.data.total_reactions;
+    return response;
+  } catch (error) {
+    console.error("Une erreur est survenue lors de la récupération du nombre total de réactions pour la réponse commentaire", error);
+  }
+}
+
   return {
     user, // Exposer le nouvel état 'user'
     commentCount,
     publicationsCount,
     reactionsCount,
+    countCommentEvent,
+    countCommentPublication,
+    countCommentProduct,
     countUserFollowed,
+    countReactTypePublication,
+    countReactPublication,
+    countReactTypeEvenement,
+    countReactEvenement,
+    countReactTypeProduit,
+    countReactProduit,
+    countReactTypeCommentaire,
+    countReactCommentaire,
+    countReactTypeReponseCommentaire,
+    countReactReponseCommentaire,
     countFollowersUser,
-    getCountPublications,
     userProfileImage,
+    reactionLoading,
+    reactionError, 
+    defaultProfileImage,
+    getCountPublications,
+    getCountCommentaireEvent,
+    getCountCommentairePublication,
+    getCountCommentaireProduct,
+    getCountReactTypePublication,
+    getCountReactPublication,
+    getCountReactTypeEvenement,
+    getCountReactEvenement,
+    getCountReactTypeProduit,
+    getCountReactProduit,
+    getCountReactTypeCommentaire,
+    getCountReactCommentaire,
+    getCountReactTypeReponseCommentaire,
+    getCountReactReponseCommentaire,
     fetchUserPhoto,
     fetchUserPhotoById,
     fetchCurrentUser,
     updateReaction,
     deleteReaction,
-    reactionLoading,
-    reactionError, 
     reactionComment,
     reactionPub,
     reactionEvent,
@@ -533,7 +731,5 @@ const getCountPublications = async() =>{
     replyReactComment,
     updateCommentId,
     deleteCommentId,
-    defaultProfileImage,
-
   };
 });

@@ -471,6 +471,17 @@ function timeAgo(date) {
   return `Il y a ${days} jour${days > 1 ? 's' : ''}`;
 }
 
+// Fonction pour formater la date
+function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
 // Fonctions utilitaires
 const toggleCommentInput = (pubId) => {
   showCommentInput.value[pubId] = !showCommentInput.value[pubId];
@@ -487,74 +498,6 @@ const cancelComment = (pubId) => {
 const goBack = () => {
   router.push('/');
 };
-
-// Fonction pour récuperer toutes les réponses a une réponse commentaire
-const fetchReplies = async (commentId) => {
-  try {
-    const replies = await userStore.getResponsesForComment(commentId);
-    subReplies.value[commentId] = replies;
-    showReplies.value[commentId] = true;
-  } catch (error) {
-    console.error('Erreur lors de la récupération des réponses :', error);
-  }
-};
-
-
-// Fonction pour récuperer une réponse commentaire
-async function fetchReply(commentId, replyToCommentId) {
-  try {
-    const response = await userStore.getResponseForComment(commentId, replyToCommentId);
-    return response.data || null;
-  } catch (error) {
-    console.error("Erreur lors de la récupération d\'une réponse de commentaire :", error.response?.data || error.message || error);
-    return null;
-  }
-}
-
-
-// Fonction pour répondre a un commentaire
-async function replyToComment(commentId) {
-  const replyText = replyInputs.value[commentId];
-  if (!replyText?.trim()) return;
-
-  isReplying.value[commentId] = true;
-
-  try {
-    const formData = new FormData();
-    formData.append('id_commentaire', commentId);
-    formData.append('description', replyText.trim());
-    const response = await userStore.responseComment(formData);
-
-    await fetchReplies(commentId); // Recharge les réponses
-    replyInputs.value[commentId] = '';
-  } catch (error) {
-    console.error("Erreur lors de la réponse au commentaire :", error);
-  } finally {
-    isReplying.value[commentId] = false;
-  }
-}
-
-// Fonction pour répondre à une réponse de commentaire
-async function replyToSubReplies(commentId, replyToCommentId) {
-  const replyText = replyToReplyComment.value[replyToCommentId];
-  if (!replyText?.trim()) return;
-
-  isReplyingToReply.value[replyToCommentId] = true;
-
-  try {
-    const formData = new FormData();
-    formData.append('id_response_commentaire', commentId);
-    formData.append('description', replyText.trim());
-    const response = await userStore.replyToResponseComment(formData);
-
-    await fetchReplies(commentId); // Recharge les réponses
-    replyToReplyComment.value[replyToCommentId] = '';
-  } catch (error) {
-    console.error("Erreur lors de la réponse à une réponse de commentaire :", error);
-  } finally {
-    isReplyingToReply.value[replyToCommentId] = false;
-  }
-}
 
 // Fonction pour récuperer tous les utilisateurs 
 async function fetchUser() {
@@ -586,14 +529,16 @@ async function followUser(userId) {
     await fetchfollowUser();
     await fetchUser();
 
-    // Mettre à jour le compteur des abonnes de l'utilisateur dans le store
-    await userStore.recupererCountFollowerForUser(userId);
+    // ✅ Vérifier que userInfos.value et son id existent
+    if (userInfos.value && userInfos.value.id) {
+      await userStore.recupererCountFollowerForUser(userInfos.value.id);
+    }
 
     // Mettre à jour le compteur des utilisateur suivi de l'utilisateur courant
     await userStore.recupererCountFollowerUser();
 
   } catch (error) {
-    console.error("Une erreur est survenue lors du suivi de l\'utilisateur", error);
+    console.error("Une erreur est survenue lors du suivi de l'utilisateur", error);
   }
 }
 
@@ -604,29 +549,19 @@ async function fetchfollowUser() {
     usersfollow.value = response
     // console.log("Utilisateurs suivis récupérés avec succès :" ,usersfollow.value)
 
-     // Mettre à jour le compteur des abonnes de l'utilisateur dans le store
-    await userStore.recupererCountFollowerForUser();
+    // ✅ Vérifier que userInfos.value et son id existent
+    if (userInfos.value && userInfos.value.id) {
+      await userStore.recupererCountFollowerForUser(userInfos.value.id);
+    }
   } catch (error) {
-    console.error("Une erreur est survenue lors de la récuperzation des followers:", error.response?.data || error.message)
+    console.error("Une erreur est survenue lors de la récupération des followers:", error.response?.data || error.message)
   }
 }
-
-// Fonction pour formater la date
-function formatDate(dateString) {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('fr-FR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-}
-
 
 // Supprimer un suivi utilisateur  
 async function unfollowUser(suiviId) {
   try {
-    // Mise à jour optimiste pour une réactivité instantan\u00e9e
+    // Mise à jour optimiste pour une réactivité instantanée
     const index = usersfollow.value.findIndex(u => u.id === suiviId);
     if (index !== -1) {
       usersfollow.value.splice(index, 1);
@@ -638,11 +573,17 @@ async function unfollowUser(suiviId) {
     await fetchfollowUser();
     await fetchUser();
 
-     // Mettre à jour le compteur des abonnes de l'utilisateur dans le store
-    await userStore.recupererCountFollowerForUser();
+    // ✅ Vérifier que userInfos.value et son id existent
+    if (userInfos.value && userInfos.value.id) {
+      await userStore.recupererCountFollowerForUser(userInfos.value.id);
+    }
+
+    // Mettre à jour le compteur des utilisateur suivi de l'utilisateur courant
+    await userStore.recupererCountFollowerUser();
+    
   } catch (error) {
     console.error("une erreur est survenue lors de la suppression du follower:", error.response?.data);
-    // En cas d\'erreur, recharger pour annuler la mise à jour optimiste
+    // En cas d'erreur, recharger pour annuler la mise à jour optimiste
     await fetchfollowUser();
     await fetchUser();
   }
@@ -739,7 +680,11 @@ async function fetchInfosUser() {
 
           <!-- Vue normale (affichée quand showProfile est false) -->
           <template v-else>
-            <PublicationForm :isCreatingPost="isCreatingPost" @create-post="createPost" />
+            <PublicationForm 
+              :isCreatingPost="isCreatingPost" @create-post="createPost"
+              :userInfos="userInfos"
+            
+            />
 
             <div class="flex-1 overflow-y-auto min-h-0">
               <PublicationList

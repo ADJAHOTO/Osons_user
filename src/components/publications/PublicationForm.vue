@@ -1,9 +1,10 @@
 <script setup>
 import { ref } from 'vue';
+import UserAvatar from './UserAvatar.vue';
 
 const props = defineProps({
-  isCreatingPost: Boolean
-  
+  isCreatingPost: Boolean,
+  userInfos: Object,
 });
 
 const emit = defineEmits(['create-post']);
@@ -21,16 +22,19 @@ function createPost() {
   emit('create-post', { ...pub.value });
   pub.value = { titre: '', description: '' }; // Réinitialiser le formulaire
 }
+
 </script>
 
 <template>
   <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100 flex-shrink-0 overflow-y-auto">
     <div class="flex items-start space-x-3">
-      <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0">
-        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-        </svg>
-      </div>
+       <UserAvatar
+        v-if="userInfos && userInfos.id"
+        :userId="userInfos.id"
+        :username="userInfos.username"
+        size="sm"
+        class="mt-1"
+      />
       <div class="flex-1 space-y-3">
         <input
           v-model="pub.titre"

@@ -12,6 +12,7 @@ const observer = ref(null);
 const isLoggedIn = ref(false);
 const userStore = useUserStore()
 const isProfileDropdownOpen = ref(false);
+const photoUrl = ref('');
 
 
 const sections = ref([
@@ -104,6 +105,7 @@ const logout = () => {
   localStorage.removeItem('access_token');
   localStorage.removeItem('token')
   localStorage.removeItem('user')
+  console.clear()
   isLoggedIn.value = false;
   isProfileDropdownOpen.value = false;
   router.push('/');
@@ -114,7 +116,7 @@ onMounted(() => {
   checkLogin();
   window.addEventListener('scroll', handleScroll);
   setupObserver();
-  userStore.fetchUserPhoto()
+  fetchUserPhoto()
 
   // Vérifie si une ancre est dans l'URL
   const hash = router.currentRoute.value.hash?.replace('#', '');
@@ -133,6 +135,25 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
   if (observer.value) observer.value.disconnect();
 });
+
+// Formater le binaire eb string utilisable pour l'image
+function formatBase64Image(base64String) {
+  if (!base64String) {
+    return userStore.defaultProfileImage; 
+  }
+  return `data:image/jpeg;base64,${base64String}`;
+}
+
+// Récuperer la photo de profil de l'utilisateur
+async function fetchUserPhoto() {
+  try {
+    const response = await userStore.fetchCurrentUser();
+    photoUrl.value = formatBase64Image(response.data.photo); 
+  } catch (error) {
+    console.error("Erreur lors de la récupération de la photo de profil :", error.response?.data || error.message);
+  }
+}
+
 </script>
 
 
@@ -182,9 +203,9 @@ onUnmounted(() => {
               @click="toggleProfileDropdown"
               class="flex items-center gap-1 focus:outline-none"
             >
-              <img 
-                :src="userStore.userProfileImage" 
-                alt="Profile" 
+             <img 
+                :src="photoUrl || userStore.defaultProfileImage"
+                alt="Photo de profil de l’utilisateur"
                 class="w-8 h-8 rounded-full object-cover border-2 border-orange-500"
               />
               <svg 
