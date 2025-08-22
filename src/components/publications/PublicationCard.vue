@@ -86,7 +86,7 @@ function handleCommentUpdated(updatedComment) {
     </div>
 
     <!-- Section des réactions optimisée mobile -->
-    <div class="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-orange-50 to-orange-100 border-t border-orange-200">
+    <div class="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-white-50 to-white-100 border-t border-orange-200">
       <ReactionButtons
         reactionType="publication"
         :reactions="reactions[publication.id]"
