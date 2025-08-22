@@ -12,6 +12,7 @@ import CommentSection from '../../components/evenements/CommentSection.vue';
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
+const users =ref([]); 
 const event = ref(null);
 const eventImage = ref(null);
 const eventComments = ref([]);
@@ -188,6 +189,29 @@ async function toggleCommentReaction(commentId, reactionType) {
   }
 }
 
+// Fonction pour récuperer tous les utilisateurs 
+async function fetchUser() {
+  try {
+    const response = await userStore.recupererUserAvailaibles();
+    
+    if (response && Array.isArray(response)) {
+      users.value = response.map(user => ({
+        ...user,
+        photoUrl: user.photo ? formatBase64Image(user.photo) : null
+      }));
+
+      // ✅ Vérification des champs reçus
+      // console.log("Utilisateurs récupérés :", users.value);
+    } else {
+      console.error("Format de données inattendu:", response);
+    }
+    
+  } catch (error) {
+    console.error("Erreur lors de la récupération des utilisateurs:", error);
+  }
+}
+
+
 const formatDate = (dateString) => {
   const options = { 
     weekday: 'long',
@@ -217,6 +241,20 @@ const timeUntilEvent = computed(() => {
   if (hours > 0) return `Dans ${hours} heure${hours > 1 ? 's' : ''}`;
   return 'Très bientôt';
 });
+
+function timeAgo(date) {
+  const now = new Date();
+  const diff = now - new Date(date);
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'À l\'instant';
+  if (minutes < 60) return `Il y a ${minutes} min`;
+  if (hours < 24) return `Il y a ${hours}h`;
+  return `Il y a ${days} jour${days > 1 ? 's' : ''}`;
+}
+
 
 const goBack = () => {
   router.go(-1);
@@ -296,11 +334,15 @@ onMounted(() => {
         v-if="showCommentsSection"
         :comments="eventComments"
         :new-comment="newComment"
+        :users="users"
         :is-submitting-comment="isSubmittingComment"
         :reacting-comments="reactingComments"
+        :timeAgo="timeAgo"
         @update:new-comment="newComment = $event"
         @submit-comment="submitComment"
         @react-comment="toggleCommentReaction"
+        @comment-deleted="fetchComments"
+        @comment-updated="fetchComments"
       />
       </div>
     </main>

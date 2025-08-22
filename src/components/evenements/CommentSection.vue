@@ -18,10 +18,16 @@ defineProps({
   reactingComments: {
     type: Set,
     default: () => new Set()
+  },
+  users: {
+    type: Array,
+    default: () => []
   }
 })
 
-defineEmits(['update:new-comment', 'submit-comment', 'react-comment'])
+const emit = defineEmits(['update:new-comment', 'submit-comment', 'react-comment',
+  'comment-deleted','comment-updated'
+])
 </script>
 
 <template>
@@ -38,6 +44,7 @@ defineEmits(['update:new-comment', 'submit-comment', 'react-comment'])
     <CommentForm
       :new-comment="newComment"
       :is-submitting="isSubmittingComment"
+      :users="users"
       @update:new-comment="(value) => $emit('update:new-comment', value)"
       @submit="$emit('submit-comment')"
     />
@@ -56,9 +63,13 @@ defineEmits(['update:new-comment', 'submit-comment', 'react-comment'])
       <CommentItem
         v-for="comment in comments"
         :key="comment.id"
+        :users="users"
         :comment="comment"
         :reacting-comments="reactingComments"
+        :timeAgo="timeAgo"
         @react="(commentId, reactionType) => $emit('react-comment', commentId, reactionType)"
+        @comment-deleted="emit('comment-deleted', $event)"
+        @comment-updated="emit('comment-updated', $event)"
       />
     </div>
   </div>

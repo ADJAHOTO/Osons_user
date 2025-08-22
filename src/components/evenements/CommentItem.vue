@@ -1,7 +1,11 @@
 <script setup>
+import { ref } from 'vue';
+import { useUserStore } from '../../stores/userStore';
 import { formatRelativeTime } from '../../utils/dateUtils';
+import CommentReplySection from './CommentReplySection.vue';
+import CommentReactions from './CommentReactions.vue';
 
-defineProps({
+const props = defineProps({
   comment: {
     type: Object,
     required: true
@@ -12,7 +16,66 @@ defineProps({
   }
 })
 
-defineEmits(['react'])
+const emit = defineEmits(['react', 'comment-deleted', 'comment-updated']);
+const userStore = useUserStore();
+const isEditing = ref(false);
+const editedDescription = ref('');
+const showReplies = ref(false)
+
+// Initialiser la valeur d'édition avec le contenu actuel
+function initializeEdit() {
+  editedDescription.value = props.comment.description;
+  isEditing.value = true;
+}
+
+function cancelEdit() {
+  isEditing.value = false;
+}
+
+// Mettre a jour le commentaire
+async function updateCommentaire() {
+  if (!props.comment.id || !editedDescription.value.trim()) {
+    console.error("Le commentaire et la description sont requis pour la mise à jour");
+    return;
+  }
+  
+  try {
+      const formData = new FormData()
+      formData.append('description', editedDescription.value.trim())
+      const result = await userStore.updateCommentId(props.comment.id, formData)
+      
+      if (result) {
+        emit('comment-updated', { 
+          id: props.comment.id, 
+          description: editedDescription.value.trim() 
+        })
+        isEditing.value = false
+      }
+    } catch (e) {
+      console.error('Erreur update commentaire', e)
+    }
+}
+
+// Supprimer le commentaire
+async function deleteCommentaire() {
+  if (!props.comment.id) return
+
+  try {
+    const result = await userStore.deleteCommentId(props.comment.id)
+    
+    if (result) {
+      emit('comment-deleted', props.comment.id)
+      await userStore.getCountCommentaire()
+    }
+  } catch (e) {
+    console.error('Erreur delete commentaire', e)
+  }
+}
+
+//  Fonction pour gérer les réactions du composant enfant
+function handleReaction(commentId, reactionType) {
+  emit('react', commentId, reactionType)
+}
 </script>
 
 <template>
@@ -33,108 +96,69 @@ defineEmits(['react'])
             <span class="text-gray-500 text-sm">{{ formatRelativeTime(comment.date_creation) }}</span>
           </div>
           
-          <div class="prose prose-sm max-w-none mb-4">
+          <div v-if="!isEditing" class="prose prose-sm max-w-none mb-4">
             <p class="text-gray-700 leading-relaxed break-words">{{ comment.description }}</p>
           </div>
-          
-          <!-- Système de réactions pour commentaires amélioré -->
-          <div class="flex items-center justify-start space-x-2 mt-3 pt-3 border-t border-gray-100">
-            <button 
-              @click.stop="$emit('react', comment.id, 'like')"
-              :disabled="reactingComments.has(comment.id)"
-              class="flex items-center space-x-1 px-3 py-1 rounded-full transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="comment.userReaction === 'like' ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'"
+          <div v-else class="prose prose-sm max-w-none mb-4">
+            <textarea
+              v-model="editedDescription"
+              class="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+              rows="3"
+              placeholder="Modifier votre commentaire..."
+            ></textarea>
+            <div class="flex justify-end space-x-2 mt-2">
+              <button
+                @click="cancelEdit"
+                class="px-3 py-1 text-xs text-gray-600 bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Annuler
+              </button>
+              <button
+                @click="updateCommentaire"
+                :disabled="!editedDescription.trim()"
+                class="px-3 py-1 text-xs text-white bg-orange-500 rounded hover:bg-orange-600 disabled:bg-gray-300"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+
+          <!--  Utilisation du composant CommentReactions -->
+          <CommentReactions
+            :comment="comment"
+            :reactingComments="reactingComments"
+            @react="handleReaction"
+          />
+
+          <div class="flex items-center space-x-5 mt-3">
+             <button
+              @click="showReplies = !showReplies"
+              class="text-blue-500  text-xs cursor-pointer"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path 
-                  stroke-linecap="round" 
-                  stroke-linejoin="round" 
-                  stroke-width="2" 
-                  d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                  :fill="comment.userReaction === 'like' ? 'currentColor' : 'none'"
-                />
-              </svg>
-              <span class="text-xs font-medium">Like</span>
-              <div v-if="reactingComments.has(comment.id)" class="w-3 h-3">
-                <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </div>
+              {{ showReplies ? 'Masquer' : 'Reply' }}
             </button>
 
-            <button 
-              @click.stop="$emit('react', comment.id, 'adore')"
-              :disabled="reactingComments.has(comment.id)"
-              class="flex items-center space-x-1 px-3 py-1 rounded-full transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="comment.userReaction === 'adore' ? 'bg-rose-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-rose-100'"
+            <button
+              v-if="!isEditing"
+              @click="initializeEdit"
+              class="text-blue-500  text-xs cursor-pointer"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path 
-                  stroke-linecap="round" 
-                  stroke-linejoin="round" 
-                  stroke-width="2" 
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  :fill="comment.userReaction === 'adore' ? 'currentColor' : 'none'"
-                />
-              </svg>
-              <span class="text-xs font-medium">Adore</span>
-              <div v-if="reactingComments.has(comment.id)" class="w-3 h-3">
-                <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </div>
+              Modifier
             </button>
-
-            <button 
-              @click.stop="$emit('react', comment.id, 'smile')"
-              :disabled="reactingComments.has(comment.id)"
-              class="flex items-center space-x-1 px-3 py-1 rounded-full transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="comment.userReaction === 'smile' ? 'bg-yellow-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-yellow-100'"
+            <button
+              @click="deleteCommentaire"
+              class="text-red-500  cursor-pointer text-xs"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path 
-                  stroke-linecap="round" 
-                  stroke-linejoin="round" 
-                  stroke-width="2" 
-                  d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  :fill="comment.userReaction === 'smile' ? 'currentColor' : 'none'"
-                />
-              </svg>
-              <span class="text-xs font-medium">Smile</span>
-              <div v-if="reactingComments.has(comment.id)" class="w-3 h-3">
-                <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </div>
-            </button>
-
-            <button 
-              @click.stop="$emit('react', comment.id, 'heart')"
-              :disabled="reactingComments.has(comment.id)"
-              class="flex items-center space-x-1 px-3 py-1 rounded-full transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="comment.userReaction === 'heart' ? 'bg-red-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-red-100'"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path 
-                  stroke-linecap="round" 
-                  stroke-linejoin="round" 
-                  stroke-width="2" 
-                  d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405-.905.904 0 .715.211 1.413.608 2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5"
-                  :fill="comment.userReaction === 'heart' ? 'currentColor' : 'none'"
-                />
-              </svg>
-              <span class="text-xs font-medium">Dislike</span>
-              <div v-if="reactingComments.has(comment.id)" class="w-3 h-3">
-                <svg class="animate-spin text-current" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </div>
+              Supprimer
             </button>
           </div>
+          
+          <CommentReplySection
+            v-if="showReplies"
+            :commentId="comment.id"
+            :timeAgo="formatRelativeTime"
+            :reacting-comments="reactingComments"
+          />
         </div>
       </div>
     </div>
